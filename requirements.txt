@@ -78,3 +78,4 @@ tzdata==2025.2
 uritemplate==4.1.1
 urllib3==2.4.0
 uvicorn==0.34.2
+jinja2
