@@ -92,7 +92,6 @@
   </style>
 </head>
 <body>
-  
   <div class="sidebar">
     <div class="sidebar-header">
       <input id="searchSo" placeholder="Search SO No..." oninput="filterSOs()" />
@@ -108,6 +107,7 @@
       <p style="color:#888;text-align:center;">Select an SO No. to see details.</p>
     </div>
   </div>
+
   <script>
     const API_URL = "/api/pipes";
     let soGrouped = {}, allSO = [];
@@ -156,7 +156,6 @@
           alert("ไม่สามารถโหลดข้อมูลจาก Google Sheet ได้");
         }
       }
-
 
     function renderSOs() {
       const list = document.getElementById('poList');
@@ -228,7 +227,6 @@
       })
       .catch(err => alert("Failed to generate label: " + err));
     }
-
 
     function getEndValue(size, endType) {
       const map = {

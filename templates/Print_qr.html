@@ -86,7 +86,6 @@
   </style>
 </head>
 <body>
-  
   <header>Pipe Spool Labeling Station</header>
   <div class="container">
     <div class="toolbar">
@@ -116,7 +115,7 @@
             <th>Length</th>
             <th>End1/End2</th>
             <th>Vent Hole</th>
-            <th>OD (mm)</th> <!-- ✅ เพิ่มคอลัมน์นี้ -->
+            <th>OD (mm)</th> 
             <th>Calc. Weight</th>
             <th>Status</th>
             <th>Meas. Dia</th>
@@ -130,223 +129,223 @@
   </div>
 
   <script>
-  let spoolList = [], pollingInterval;
+    let spoolList = [], pollingInterval;
 
-  const loadBtn = document.getElementById('loadCartBtn');
-  loadBtn.addEventListener('click', onCartLoad);
+    const loadBtn = document.getElementById('loadCartBtn');
+    loadBtn.addEventListener('click', onCartLoad);
 
-  document.getElementById('cartBarcode').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') onCartLoad();
-  });
+    document.getElementById('cartBarcode').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') onCartLoad();
+    });
 
-  // 🟦 น้ำหนักต่อ mm สำหรับแต่ละขนาด (kg/mm)
-  const PIPE_WEIGHT_PER_MM = {
-    "1.00": 0.015,
-    "1.50": 0.019,
-    "2.00": 0.020,
-    "3.00": 0.030
-  };
+    // 🟦 น้ำหนักต่อ mm สำหรับแต่ละขนาด (kg/mm)
+    const PIPE_WEIGHT_PER_MM = {
+      "1.00": 0.015,
+      "1.50": 0.019,
+      "2.00": 0.020,
+      "3.00": 0.030
+    };
 
-  // 🟦 OD (mm) สำหรับแต่ละ NPS
-  const NPS_TO_OD_MM = {
-    "0.5": 21.34, "0.75": 26.67, "1": 33.40, "1.25": 42.16,
-    "1.5": 48.26, "2": 60.33, "2.5": 73.03, "3": 88.90,
-    "4": 114.30, "6": 168.28, "8": 219.08
-  };
+    // 🟦 OD (mm) สำหรับแต่ละ NPS
+    const NPS_TO_OD_MM = {
+      "0.5": 21.34, "0.75": 26.67, "1": 33.40, "1.25": 42.16,
+      "1.5": 48.26, "2": 60.33, "2.5": 73.03, "3": 88.90,
+      "4": 114.30, "6": 168.28, "8": 219.08
+    };
 
-  const END_WEIGHT = {
-    "F-Default": 1.2,
-    "L-Default": 1.5,
-    "None": 0
-  };
+    const END_WEIGHT = {
+      "F-Default": 1.2,
+      "L-Default": 1.5,
+      "None": 0
+    };
 
-  const VENT_HOLE_WEIGHT = 0.3;
+    const VENT_HOLE_WEIGHT = 0.3;
 
-  function normalizeNPS(npsRaw) {
-    const str = String(npsRaw || "").trim().replace(/\s+/g, "");
-    if (str.includes("-") && str.includes("/")) {
-      const [whole, frac] = str.split("-");
-      const [num, denom] = (frac || "").split("/");
-      const wholeNum = parseInt(whole);
-      const numerator = parseInt(num);
-      const denominator = parseInt(denom);
-      if (!isNaN(wholeNum) && !isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
-        return (wholeNum + numerator / denominator).toFixed(2);
+    function normalizeNPS(npsRaw) {
+      const str = String(npsRaw || "").trim().replace(/\s+/g, "");
+      if (str.includes("-") && str.includes("/")) {
+        const [whole, frac] = str.split("-");
+        const [num, denom] = (frac || "").split("/");
+        const wholeNum = parseInt(whole);
+        const numerator = parseInt(num);
+        const denominator = parseInt(denom);
+        if (!isNaN(wholeNum) && !isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+          return (wholeNum + numerator / denominator).toFixed(2);
+        }
       }
+      const val = parseFloat(str);
+      if (!isNaN(val)) return val.toFixed(2);
+      return "";
     }
-    const val = parseFloat(str);
-    if (!isNaN(val)) return val.toFixed(2);
-    return "";
-  }
 
-  function getODFromSize(sizeRaw) {
-    const nps = normalizeNPS(sizeRaw);
-    const od = NPS_TO_OD_MM[parseFloat(nps).toString()];
-    return od ? od.toFixed(2) : null;
-  }
-
-  function calculateWeight(spool) {
-    const nps = normalizeNPS(spool.dia);
-    const length = parseFloat(spool.length || 0);
-    const perMM = PIPE_WEIGHT_PER_MM[nps] || 0;
-    const pipeWeight = perMM * length;
-    const end1Weight = END_WEIGHT[spool.end1?.trim()] || 0;
-    const end2Weight = END_WEIGHT[spool.end2?.trim()] || 0;
-    const ventWeight = (spool.vent_hole || "").toLowerCase() === "yes" ? VENT_HOLE_WEIGHT : 0;
-    const totalWeight = pipeWeight + end1Weight + end2Weight + ventWeight;
-    return totalWeight.toFixed(2);
-  }
-
-  async function onCartLoad() {
-    const qrInput = document.getElementById('cartBarcode').value.trim();
-    if (!qrInput) return alert('Scan a cart barcode');
-
-    const parts = qrInput.split(/\s+/);
-    const spoolIds = parts.slice(1);
-    clearInterval(pollingInterval);
-    spoolList = spoolIds.map(id => ({ id }));
-
-    await enrichSpoolsWithPipeDetails();
-    populateTable();
-    startPolling();
-
-    // ✅ Update status_labeling = "in-progress" ผ่าน API
-    await fetch("/api/update_status_labeling", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ spool_ids: spoolIds, status: "in-progress" })
-    });
-  }
-
-  async function fetchAllPipeData() {
-    try {
-      const res = await fetch("/api/pipes");
-      if (!res.ok) throw new Error("Failed to fetch pipe data");
-      const data = await res.json();
-      const [header, ...rows] = data;
-      return rows.map(row => {
-        const obj = {};
-        header.forEach((key, i) => obj[key.trim()] = row[i]?.trim?.() || "");
-        return obj;
-      });
-    } catch (err) {
-      console.error("❌", err.message);
-      return [];
+    function getODFromSize(sizeRaw) {
+      const nps = normalizeNPS(sizeRaw);
+      const od = NPS_TO_OD_MM[parseFloat(nps).toString()];
+      return od ? od.toFixed(2) : null;
     }
-  }
 
-  async function enrichSpoolsWithPipeDetails() {
-    const pipeData = await fetchAllPipeData();
-    spoolList.forEach(spool => {
-      const matched = pipeData.find(p => p["Spool ID"] === spool.id);
-      if (matched) {
-        spool.so_no = matched["SO"];
-        spool.dia = matched["Size"];
-        spool.length = matched["Length"];
-        spool.end1 = matched["End1"];
-        spool.end2 = matched["End2"];
-        spool.vent_hole = matched["Vent Hole"];
-        spool.file_dwg = matched["file_dwg"];
-        spool.weight = calculateWeight(spool);
-        spool.od_mm = getODFromSize(spool.dia); // ✅ เพิ่ม OD mm
-      } else {
-        console.warn(`❌ No match found for spool ${spool.id}`);
-      }
-    });
-  }
+    function calculateWeight(spool) {
+      const nps = normalizeNPS(spool.dia);
+      const length = parseFloat(spool.length || 0);
+      const perMM = PIPE_WEIGHT_PER_MM[nps] || 0;
+      const pipeWeight = perMM * length;
+      const end1Weight = END_WEIGHT[spool.end1?.trim()] || 0;
+      const end2Weight = END_WEIGHT[spool.end2?.trim()] || 0;
+      const ventWeight = (spool.vent_hole || "").toLowerCase() === "yes" ? VENT_HOLE_WEIGHT : 0;
+      const totalWeight = pipeWeight + end1Weight + end2Weight + ventWeight;
+      return totalWeight.toFixed(2);
+    }
 
-  function populateTable() {
-    const tbody = document.querySelector('#spoolTable tbody');
-    tbody.innerHTML = '';
-    spoolList.forEach((s,i) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${s.id}</td>
-        <td>${s.so_no || '-'}</td>
-        <td>${s.dia || '-'}</td>
-        <td>${s.length || '-'}</td>
-        <td>${s.end1 || '-'}/${s.end2 || '-'}</td>
-        <td>${s.vent_hole || '-'}</td>
-        <td>${s.od_mm || '-'}</td> <!-- ✅ เพิ่มตรงนี้ -->
-        <td>${s.weight || '-'}</td>
-        <td class="status">Pending</td>
-        <td class="measuredDia">-</td>
-        <td class="measuredWeight">-</td>
-        <td><button class="btn btn-primary action-btn" onclick="startMeasure(${i}, this)">Print</button></td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
+    async function onCartLoad() {
+      const qrInput = document.getElementById('cartBarcode').value.trim();
+      if (!qrInput) return alert('Scan a cart barcode');
 
-  function startPolling() {
-    pollingInterval = setInterval(async () => {
-      const dia = await measureDiameter();
-      const wt  = await measureWeight();
-      document.getElementById('currentDia').textContent = dia.toFixed(1);
-      document.getElementById('currentWeight').textContent = wt.toFixed(1);
-      highlightClosest(dia, wt);
-    }, 1000);
-  }
+      const parts = qrInput.split(/\s+/);
+      const spoolIds = parts.slice(1);
+      clearInterval(pollingInterval);
+      spoolList = spoolIds.map(id => ({ id }));
 
-  function highlightClosest(dia, wt) {
-    if (!spoolList.length) return;
-    let bestIdx = 0;
-    let bestScore = Infinity;
-    spoolList.forEach((s, idx) => {
-      const score = Math.abs(parseFloat(s.od_mm || 0) - dia) + Math.abs(parseFloat(s.weight || 0) - wt);
-      if (score < bestScore) {
-        bestScore = score;
-        bestIdx = idx;
-      }
-    });
-    const rows = document.querySelectorAll('#spoolTable tbody tr');
-    rows.forEach((r, i) => r.classList.toggle('highlight', i === bestIdx));
-  }
+      await enrichSpoolsWithPipeDetails();
+      populateTable();
+      startPolling();
 
-  async function startMeasure(i, btn) {
-    const dia = parseFloat(document.getElementById('currentDia').textContent) || 0;
-    const wt  = parseFloat(document.getElementById('currentWeight').textContent) || 0;
-    const row = btn.closest('tr');
-    row.querySelector('.measuredDia').textContent = dia;
-    row.querySelector('.measuredWeight').textContent = wt;
-    const spool = spoolList[i];
-    const st = row.querySelector('.status');
-    if (matchSpool(spool, dia, wt)) {
-      st.textContent = 'Matched';
-      st.className = 'status Matched';
-      btn.disabled = true;
-      btn.classList.add('btn-disabled');
-      btn.textContent = 'Printed';
-
-      // ✅ Update status_labeling = "finished"
+      // ✅ Update status_labeling = "in-progress" ผ่าน API
       await fetch("/api/update_status_labeling", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ spool_ids: [spool.id], status: "finished" })
+        body: JSON.stringify({ spool_ids: spoolIds, status: "in-progress" })
       });
-    } else {
-      st.textContent = 'Mismatch';
-      st.className = 'status Mismatch';
     }
-  }
 
-  function matchSpool(s, d, w) {
-    return Math.abs(parseFloat(s.od_mm || 0) - d) <= 5 && Math.abs(parseFloat(s.weight || 0) - w) <= 2;
-  }
+    async function fetchAllPipeData() {
+      try {
+        const res = await fetch("/api/pipes");
+        if (!res.ok) throw new Error("Failed to fetch pipe data");
+        const data = await res.json();
+        const [header, ...rows] = data;
+        return rows.map(row => {
+          const obj = {};
+          header.forEach((key, i) => obj[key.trim()] = row[i]?.trim?.() || "");
+          return obj;
+        });
+      } catch (err) {
+        console.error("❌", err.message);
+        return [];
+      }
+    }
 
-  function measureDiameter() {
-    return new Promise(resolve => {
-      const simulated = Math.random() * 120 + 80;
-      setTimeout(() => resolve(simulated), 50);
-    });
-  }
+    async function enrichSpoolsWithPipeDetails() {
+      const pipeData = await fetchAllPipeData();
+      spoolList.forEach(spool => {
+        const matched = pipeData.find(p => p["Spool ID"] === spool.id);
+        if (matched) {
+          spool.so_no = matched["SO"];
+          spool.dia = matched["Size"];
+          spool.length = matched["Length"];
+          spool.end1 = matched["End1"];
+          spool.end2 = matched["End2"];
+          spool.vent_hole = matched["Vent Hole"];
+          spool.file_dwg = matched["file_dwg"];
+          spool.weight = calculateWeight(spool);
+          spool.od_mm = getODFromSize(spool.dia); // ✅ เพิ่ม OD mm
+        } else {
+          console.warn(`❌ No match found for spool ${spool.id}`);
+        }
+      });
+    }
 
-  function measureWeight() {
-    return new Promise(resolve => {
-      const simulated = Math.random() * 120 + 20;
-      setTimeout(() => resolve(simulated), 50);
-    });
-  }
+    function populateTable() {
+      const tbody = document.querySelector('#spoolTable tbody');
+      tbody.innerHTML = '';
+      spoolList.forEach((s,i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${s.id}</td>
+          <td>${s.so_no || '-'}</td>
+          <td>${s.dia || '-'}</td>
+          <td>${s.length || '-'}</td>
+          <td>${s.end1 || '-'}/${s.end2 || '-'}</td>
+          <td>${s.vent_hole || '-'}</td>
+          <td>${s.od_mm || '-'}</td> <!-- ✅ เพิ่มตรงนี้ -->
+          <td>${s.weight || '-'}</td>
+          <td class="status">Pending</td>
+          <td class="measuredDia">-</td>
+          <td class="measuredWeight">-</td>
+          <td><button class="btn btn-primary action-btn" onclick="startMeasure(${i}, this)">Print</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function startPolling() {
+      pollingInterval = setInterval(async () => {
+        const dia = await measureDiameter();
+        const wt  = await measureWeight();
+        document.getElementById('currentDia').textContent = dia.toFixed(1);
+        document.getElementById('currentWeight').textContent = wt.toFixed(1);
+        highlightClosest(dia, wt);
+      }, 1000);
+    }
+
+    function highlightClosest(dia, wt) {
+      if (!spoolList.length) return;
+      let bestIdx = 0;
+      let bestScore = Infinity;
+      spoolList.forEach((s, idx) => {
+        const score = Math.abs(parseFloat(s.od_mm || 0) - dia) + Math.abs(parseFloat(s.weight || 0) - wt);
+        if (score < bestScore) {
+          bestScore = score;
+          bestIdx = idx;
+        }
+      });
+      const rows = document.querySelectorAll('#spoolTable tbody tr');
+      rows.forEach((r, i) => r.classList.toggle('highlight', i === bestIdx));
+    }
+
+    async function startMeasure(i, btn) {
+      const dia = parseFloat(document.getElementById('currentDia').textContent) || 0;
+      const wt  = parseFloat(document.getElementById('currentWeight').textContent) || 0;
+      const row = btn.closest('tr');
+      row.querySelector('.measuredDia').textContent = dia;
+      row.querySelector('.measuredWeight').textContent = wt;
+      const spool = spoolList[i];
+      const st = row.querySelector('.status');
+      if (matchSpool(spool, dia, wt)) {
+        st.textContent = 'Matched';
+        st.className = 'status Matched';
+        btn.disabled = true;
+        btn.classList.add('btn-disabled');
+        btn.textContent = 'Printed';
+
+        // ✅ Update status_labeling = "finished"
+        await fetch("/api/update_status_labeling", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ spool_ids: [spool.id], status: "finished" })
+        });
+      } else {
+        st.textContent = 'Mismatch';
+        st.className = 'status Mismatch';
+      }
+    }
+
+    function matchSpool(s, d, w) {
+      return Math.abs(parseFloat(s.od_mm || 0) - d) <= 5 && Math.abs(parseFloat(s.weight || 0) - w) <= 2;
+    }
+
+    function measureDiameter() {
+      return new Promise(resolve => {
+        const simulated = Math.random() * 120 + 80;
+        setTimeout(() => resolve(simulated), 50);
+      });
+    }
+
+    function measureWeight() {
+      return new Promise(resolve => {
+        const simulated = Math.random() * 120 + 20;
+        setTimeout(() => resolve(simulated), 50);
+      });
+    }
 </script>
 
 </body>
