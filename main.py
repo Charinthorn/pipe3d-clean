@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import qrcode
@@ -661,6 +661,12 @@ def get_pipe_statuses():
 
     return cleaned
 
+# ✅ หน้าแรก (root) redirect ไปยัง Dashboard หรือหน้าใดก็ได้
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return RedirectResponse(url="/Dashboard")
+
+# ✅ เปิดทุกหน้าแบบอัตโนมัติ
 @app.get("/{page_name}", response_class=HTMLResponse)
 async def render_page(request: Request, page_name: str):
     try:

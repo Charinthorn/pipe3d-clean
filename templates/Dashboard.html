@@ -1,376 +1,403 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PTFE Spool Production Dashboard</title>
-  <style>
-    :root {
-      --bg: #F5F5F5;
-      --sidebar-bg: #FFFFFF;
-      --primary: #2F855A;
-      --accent: #ECC94B;
-      --text: #2D3748;
-      --card-bg: #FFFFFF;
-      --border: #E2E8F0;
-      --shadow: rgba(0, 0, 0, 0.1);
-      --radius: 8px;
-      --step-pending: #E53E50;       /* สีแดงสำหรับ pending */
-      --step-in-progress: #ECC94B;   /* สีเหลืองสำหรับ in-progress */
-      --step-completed: #2F855A;     /* สีเขียวสำหรับ finished */
-      --priority-high: #E53E3E;
-      --priority-medium: #DD6B20;
-      --priority-low: #38A169;
-      --muted: #666666;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; }
-    body {
-      display: flex;
-      font-family: 'Segoe UI', Tahoma, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-    .sidebar {
-      width: 220px;
-      background: var(--sidebar-bg);
-      border-right: 1px solid var(--border);
-      padding: 24px;
-    }
-    .sidebar h2 {
-      color: var(--primary);
-      margin-bottom: 2rem;
-      font-size: 1.5rem;
-    }
-    .nav { list-style: none; padding: 0; }
-    .nav li { margin-bottom: 16px; }
-    .nav a {
-      text-decoration: none;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 8px;
-      border-radius: var(--radius);
-      transition: background 0.2s;
-    }
-    .nav a:hover { background: var(--bg); }
-    .main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 24px;
-      overflow: hidden;
-    }
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 24px;
-    }
-    .header h1 { font-size: 1.75rem; }
-    .search { position: relative; width: 280px; }
-    .search input {
-      width: 100%; padding: 8px 32px 8px 12px;
-      border: 1px solid var(--border); border-radius: var(--radius);
-      font-size: 0.9rem;
-    }
-    .search-icon {
-      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-      font-size: 1rem; color: var(--border);
-    }
-    .filters { display: flex; gap: 12px; margin-bottom: 16px; }
-    .filters button {
-      padding: 6px 14px; border: 1px solid var(--border);
-      border-radius: var(--radius); background: var(--card-bg);
-      cursor: pointer; transition: background 0.2s, border-color 0.2s;
-    }
-    .filters button.active {
-      background: var(--primary); color: #fff; border-color: var(--primary);
-    }
-    .orders {
-      flex: 1; overflow-y: auto; display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px;
-      padding-right: 8px;
-    }
-    .card {
-      background: var(--card-bg); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 16px;
-      box-shadow: 0 2px 4px var(--shadow);
-      display: flex; flex-direction: column; gap: 8px;
-      cursor: pointer;
-      transition: transform 0.15s, box-shadow 0.15s;
-    }
-    .card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 4px 8px var(--shadow);
-    }
-    .card h3 { font-size: 1.1rem; }
-    .card p { font-size: 0.85rem; color: var(--text); }
-    .badge {
-      display: inline-block; padding: 4px 8px;
-      border-radius: var(--radius); font-size: 0.75rem; text-transform: capitalize;
-    }
-    .badge.status-pending { background: #FED7D7; color: #C53030; }
-    .badge.status-in-progress { background: #FAF089; color: #B7791F; }
-    .badge.status-completed { background: #C6F6D5; color: #2F855A; }
-    .badge.priority-high { background: var(--priority-high); color: #fff; }
-    .badge.priority-medium { background: var(--priority-medium); color: #fff; }
-    .badge.priority-low { background: var(--priority-low); color: #fff; }
+{% extends "base.html" %}
 
-    .details {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background: var(--bg); padding: 24px; overflow-y: auto;
-      transform: translateX(100%); transition: transform 0.3s;
-      display: flex; flex-direction: column;
-    }
-    .details.active { transform: translateX(0); }
-    #back {
-      background: none; border: none; color: var(--primary);
-      cursor: pointer; font-size: 1rem; margin-bottom: 16px;
-    }
-    .details table {
-      width: 100%; border-collapse: collapse; margin-top: 16px;
-    }
-    .details th, .details td {
-      padding: 12px 8px; border: 1px solid var(--border); font-size: 0.85rem;
-    }
-    .progress-bar {
-      display: flex; gap: 2px; margin-bottom: 4px;
-    }
-    .progress-segment {
-      flex: 1; height: 12px; background: var(--step-pending);
-      border-radius: var(--radius); transition: background 0.2s;
-    }
-    .progress-segment.in-progress { background: var(--step-in-progress); }
-    .progress-segment.completed   { background: var(--step-completed); }
+{% block title %}PTFE Spool Production Dashboard{% endblock %}
 
-    .station-labels {
-      display: flex; justify-content: space-between; font-size: 0.75rem;
-      color: var(--muted); margin-bottom: 8px;
-    }
-    .station-labels span {
-      flex: 1; text-align: center;
-    }
-  </style>
-</head>
-<body>
-  {% extends "base.html" %}
+{% block head %}
+<style>
+  :root {
+    --bg: #F5F5F5;
+    --sidebar-bg: #FFFFFF;
+    --primary: #2F855A;
+    --accent: #ECC94B;
+    --text: #2D3748;
+    --card-bg: #FFFFFF;
+    --border: #E2E8F0;
+    --shadow: rgba(0, 0, 0, 0.1);
+    --radius: 8px;
+    --step-pending: #E53E50;
+    --step-in-progress: #ECC94B;
+    --step-completed: #2F855A;
+    --priority-high: #E53E3E;
+    --priority-medium: #DD6B20;
+    --priority-low: #38A169;
+    --muted: #666666;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    display: flex;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .sidebar {
+    width: 220px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    padding: 24px;
+  }
+  .sidebar h2 {
+    color: var(--primary);
+    margin-bottom: 2rem;
+    font-size: 1.5rem;
+  }
+  .nav { list-style: none; padding: 0; }
+  .nav li { margin-bottom: 16px; }
+  .nav a {
+    text-decoration: none;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border-radius: var(--radius);
+    transition: background 0.2s;
+  }
+  .nav a:hover { background: var(--bg); }
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    overflow: hidden;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .header h1 { font-size: 1.75rem; }
+  .search { position: relative; width: 280px; }
+  .search input {
+    width: 100%;
+    padding: 8px 32px 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+  }
+  .search-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1rem;
+    color: var(--border);
+  }
+  .filters {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .filters button {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card-bg);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .filters button.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+  .orders {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 20px;
+    padding-right: 8px;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: 0 2px 4px var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 8px var(--shadow);
+  }
+  .card h3 { font-size: 1.1rem; }
+  .card p { font-size: 0.85rem; color: var(--text); }
+  .badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+    text-transform: capitalize;
+  }
+  .badge.status-pending { background: #FED7D7; color: #C53030; }
+  .badge.status-in-progress { background: #FAF089; color: #B7791F; }
+  .badge.status-completed { background: #C6F6D5; color: #2F855A; }
+  .badge.priority-high { background: var(--priority-high); color: #fff; }
+  .badge.priority-medium { background: var(--priority-medium); color: #fff; }
+  .badge.priority-low { background: var(--priority-low); color: #fff; }
 
-  {% block title %}PTFE Spool Production Dashboard{% endblock %}
+  .details {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: var(--bg);
+    padding: 24px;
+    overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform 0.3s;
+    display: flex;
+    flex-direction: column;
+  }
+  .details.active { transform: translateX(0); }
+  #back {
+    background: none;
+    border: none;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 1rem;
+    margin-bottom: 16px;
+  }
+  .details table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+  }
+  .details th, .details td {
+    padding: 12px 8px;
+    border: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .progress-bar {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 4px;
+  }
+  .progress-segment {
+    flex: 1;
+    height: 12px;
+    background: var(--step-pending);
+    border-radius: var(--radius);
+    transition: background 0.2s;
+  }
+  .progress-segment.in-progress { background: var(--step-in-progress); }
+  .progress-segment.completed   { background: var(--step-completed); }
 
-  {% block content %}
-  <aside class="sidebar">
-    <h2>PTFE Production</h2>
-    <ul class="nav">
-      <li><a href="#">🏭 Dashboard</a></li>
-      <li><a href="#">📋 Orders</a></li>
-      <li><a href="#">⚙️ Settings</a></li>
-    </ul>
-  </aside>
-  <main class="main">
-    <div class="header">
-      <h1>Spool Orders</h1>
-      <div class="search">
-        <input id="search" placeholder="Search order..." />
-        <span class="search-icon">🔍</span>
-      </div>
+  .station-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .station-labels span {
+    flex: 1;
+    text-align: center;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<aside class="sidebar">
+  <h2>PTFE Production</h2>
+  <ul class="nav">
+    <li><a href="#">🏭 Dashboard</a></li>
+    <li><a href="#">📋 Orders</a></li>
+    <li><a href="#">⚙️ Settings</a></li>
+  </ul>
+</aside>
+
+<main class="main">
+  <div class="header">
+    <h1>Spool Orders</h1>
+    <div class="search">
+      <input id="search" placeholder="Search order..." />
+      <span class="search-icon">🔍</span>
     </div>
-    <div class="filters">
-      <button class="filter active" data-status="all">All</button>
-      <button class="filter" data-status="pending">Pending</button>
-      <button class="filter" data-status="in-progress">In Progress</button>
-      <button class="filter" data-status="completed">Completed</button>
-    </div>
-    <section class="orders" id="orders"></section>
+  </div>
 
-    <section class="details" id="details">
-      <button id="back">← Back to Orders</button>
-      <h2 id="details-title"></h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th>Qty</th>
-            <th>Progress</th>
-          </tr>
-        </thead>
-        <tbody id="item-rows"></tbody>
-      </table>
-    </section>
-  </main>
+  <div class="filters">
+    <button class="filter active" data-status="all">All</button>
+    <button class="filter" data-status="pending">Pending</button>
+    <button class="filter" data-status="in-progress">In Progress</button>
+    <button class="filter" data-status="completed">Completed</button>
+  </div>
 
-  <script>
-    const TOTAL_STATIONS = 6; // ปรับเป็น 6 สถานี: cut, assembly, blasting, lining, coating, labeling
-    let workflows = [];
-    const ordersEl  = document.getElementById('orders');
-    const detailsEl = document.getElementById('details');
-    const titleEl   = document.getElementById('details-title');
-    const rowsEl    = document.getElementById('item-rows');
-    const backBtn   = document.getElementById('back');
+  <section class="orders" id="orders"></section>
 
-    //
-    // ดึงข้อมูลคอลัมน์ status_* 6 ค่า (status_cut … status_labeling)
-    // จาก API /api/pipes_statuses แล้วสร้าง workflows แยกตาม SO
-    //
-    async function fetchWorkflowsFromAPI() {
-      try {
-        const res = await fetch("/api/pipes_statuses");
-        const data = await res.json();
-        const [header, ...rows] = data;
+  <section class="details" id="details">
+    <button id="back">← Back to Orders</button>
+    <h2 id="details-title"></h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Qty</th>
+          <th>Progress</th>
+        </tr>
+      </thead>
+      <tbody id="item-rows"></tbody>
+    </table>
+  </section>
+</main>
+{% endblock %}
 
-        // แปลงเป็น Array of Objects
-        const spoolList = rows.map(row => {
-          const obj = {};
-          header.forEach((colName, i) => {
-            const key = colName.trim();
-            const value = (row[i] || "").trim();
-            obj[key] = key.startsWith("status_") ? value.toLowerCase() : value;
-          });
-          return obj;
+{% block script %}
+<script>
+  const TOTAL_STATIONS = 6;
+  let workflows = [];
+  const ordersEl  = document.getElementById('orders');
+  const detailsEl = document.getElementById('details');
+  const titleEl   = document.getElementById('details-title');
+  const rowsEl    = document.getElementById('item-rows');
+  const backBtn   = document.getElementById('back');
+
+  async function fetchWorkflowsFromAPI() {
+    try {
+      const res = await fetch("/api/pipes_statuses");
+      const data = await res.json();
+      const [header, ...rows] = data;
+
+      const spoolList = rows.map(row => {
+        const obj = {};
+        header.forEach((colName, i) => {
+          const key   = colName.trim();
+          const value = (row[i] || "").trim();
+          obj[key] = key.startsWith("status_") ? value.toLowerCase() : value;
         });
+        return obj;
+      });
 
-        // จัดกลุ่มตาม SO
-        const grouped = {};
-        spoolList.forEach(item => {
-          const soNo = item["SO"];
-          if (!grouped[soNo]) grouped[soNo] = [];
-          grouped[soNo].push({
-            name: item["Spool ID"],
-            qty: 1,
-            stationStatus: [
-              item["status_cut"],
-              item["status_assembly"],
-              item["status_blasting"],
-              item["status_lining"],
-              item["status_coating"],
-              item["status_labeling"]
-            ]
-          });
+      const grouped = {};
+      spoolList.forEach(item => {
+        const soNo = item["SO"];
+        if (!grouped[soNo]) grouped[soNo] = [];
+        grouped[soNo].push({
+          name: item["Spool ID"],
+          qty: 1,
+          stationStatus: [
+            item["status_cut"],
+            item["status_assembly"],
+            item["status_blasting"],
+            item["status_lining"],
+            item["status_coating"],
+            item["status_labeling"]
+          ]
         });
+      });
 
-        // สร้าง workflows
-        workflows = Object.entries(grouped).map(([so, items]) => ({
-          id: so,
-          date: "2025-06-01",  // สามารถแก้เป็นข้อมูลจริงได้
-          status: items.every(i => i.stationStatus.every(s => s === "finished"))
-                    ? "completed"
-                  : items.every(i => i.stationStatus.every(s => !s || s === "pending"))
-                    ? "pending"
-                  : "in-progress",
-          priority: "medium", // กำหนด logic priority ตามต้องการ
-          dueDate: "2025-06-20",
-          estCompletion: "2025-06-10",
-          items
-        }));
+      workflows = Object.entries(grouped).map(([so, items]) => ({
+        id: so,
+        date: "2025-06-01",
+        status: items.every(i => i.stationStatus.every(s => s === "finished"))
+                  ? "completed"
+                : items.every(i => i.stationStatus.every(s => !s || s === "pending"))
+                  ? "pending"
+                : "in-progress",
+        priority: "medium",
+        dueDate: "2025-06-20",
+        estCompletion: "2025-06-10",
+        items
+      }));
 
-        renderCards();
-      } catch(err) {
-        console.error("❌ Failed to fetch workflows:", err);
-      }
+      renderCards();
+    } catch(err) {
+      console.error("❌ Failed to fetch workflows:", err);
     }
+  }
 
-    //
-    // วาดการ์ด SO/HPO ตาม workflows ที่โหลดมา
-    //
-    function renderCards(filter = 'all', search = '') {
-      ordersEl.innerHTML = '';
-      workflows
-        .filter(o => (filter === 'all') || (o.status === filter))
-        .filter(o => o.id.includes(search.toUpperCase()))
-        .forEach(o => {
-          const card = document.createElement('div');
-          card.className = 'card';
-          card.innerHTML = `
-            <h3>${o.id}</h3>
-            <p style="font-size:0.8rem;color:#666">Date: ${o.date}</p>
-            <div style="display:flex;gap:6px;margin:8px 0">
-              <span class="badge priority-${o.priority}">${o.priority}</span>
-              <span class="badge status-${o.status}">${o.status.replace('-', ' ')}</span>
-            </div>
-            <p style="font-size:0.8rem;color:#666">Due: ${o.dueDate}</p>
-            <p style="font-size:0.8rem;color:#666">Est: ${o.estCompletion}</p>
-          `;
-          card.addEventListener('click', () => openDetails(o));
-          ordersEl.appendChild(card);
-        });
-    }
+  function renderCards(filter = 'all', search = '') {
+    ordersEl.innerHTML = '';
+    workflows
+      .filter(o => (filter === 'all') || (o.status === filter))
+      .filter(o => o.id.includes(search.toUpperCase()))
+      .forEach(o => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <h3>${o.id}</h3>
+          <p style="font-size:0.8rem;color:#666">Date: ${o.date}</p>
+          <div style="display:flex;gap:6px;margin:8px 0">
+            <span class="badge priority-${o.priority}">${o.priority}</span>
+            <span class="badge status-${o.status}">${o.status.replace('-', ' ')}</span>
+          </div>
+          <p style="font-size:0.8rem;color:#666">Due: ${o.dueDate}</p>
+          <p style="font-size:0.8rem;color:#666">Est: ${o.estCompletion}</p>
+        `;
+        card.addEventListener('click', () => openDetails(o));
+        ordersEl.appendChild(card);
+      });
+  }
 
-    //
-    // เปิดดูรายละเอียด SO (แสดง progress bar 6 ช่อง พร้อมชื่อสถานี)
-    //
-    function openDetails(order) {
-      titleEl.textContent = `${order.id} Details`;
-      rowsEl.innerHTML = '';
+  function openDetails(order) {
+    titleEl.textContent = `${order.id} Details`;
+    rowsEl.innerHTML = '';
 
-      order.items.forEach(item => {
-        const tr = document.createElement('tr');
+    order.items.forEach(item => {
+      const tr = document.createElement('tr');
 
-        // สร้าง progress bar 6 ช่อง
-        const progressBar = document.createElement('div');
-        progressBar.className = 'progress-bar';
+      const progressBar = document.createElement('div');
+      progressBar.className = 'progress-bar';
 
-        for (let i = 0; i < TOTAL_STATIONS; i++) {
-          const seg = document.createElement('div');
-          seg.className = 'progress-segment';
-          const status = item.stationStatus[i];
-          if (status === 'in-progress') {
-            seg.classList.add('in-progress');
-          } else if (status === 'finished') {
-            seg.classList.add('completed');
-          }
-          // กรณีอื่น ("" หรือ "pending") ให้คงเป็นสีแดง (--step-pending)
-          progressBar.appendChild(seg);
+      for (let i = 0; i < TOTAL_STATIONS; i++) {
+        const seg = document.createElement('div');
+        seg.className = 'progress-segment';
+        const status = item.stationStatus[i];
+        if (status === 'in-progress') {
+          seg.classList.add('in-progress');
+        } else if (status === 'finished') {
+          seg.classList.add('completed');
         }
+        progressBar.appendChild(seg);
+      }
 
-        // สร้างแถว label ชื่อสถานีใต้ progress bar
-        const labelRow = document.createElement('div');
-        labelRow.className = 'station-labels';
-        labelRow.innerHTML = `
-          <span>Cut</span>
-          <span>Assembly</span>
-          <span>Blasting</span>
-          <span>Lining</span>
-          <span>Coating</span>
-          <span>Labeling</span>
-        `;
+      const labelRow = document.createElement('div');
+      labelRow.className = 'station-labels';
+      labelRow.innerHTML = `
+        <span>Cut</span>
+        <span>Assembly</span>
+        <span>Blasting</span>
+        <span>Lining</span>
+        <span>Coating</span>
+        <span>Labeling</span>
+      `;
 
-        tr.innerHTML = `
-          <td>${item.name}</td>
-          <td>${item.qty}</td>
-          <td></td>
-        `;
-        const cell = tr.children[2];
-        cell.appendChild(progressBar);
-        cell.appendChild(labelRow);
-        rowsEl.appendChild(tr);
-      });
-
-      detailsEl.classList.add('active');
-    }
-
-    backBtn.addEventListener('click', () => {
-      detailsEl.classList.remove('active');
+      tr.innerHTML = `
+        <td>${item.name}</td>
+        <td>${item.qty}</td>
+        <td></td>
+      `;
+      const cell = tr.children[2];
+      cell.appendChild(progressBar);
+      cell.appendChild(labelRow);
+      rowsEl.appendChild(tr);
     });
 
-    // สั่งกรอง (All / Pending / In Progress / Completed)
-    document.querySelectorAll('.filter').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.filter').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        renderCards(btn.dataset.status, document.getElementById('search').value);
-      });
-    });
+    detailsEl.classList.add('active');
+  }
 
-    // ค้นหาโดย ID
-    document.getElementById('search').addEventListener('input', e => {
-      const active = document.querySelector('.filter.active').dataset.status;
-      renderCards(active, e.target.value);
-    });
+  backBtn.addEventListener('click', () => {
+    detailsEl.classList.remove('active');
+  });
 
-    // โหลดข้อมูลเมื่อหน้าเปิด
-    fetchWorkflowsFromAPI();
-  </script>
-  {% endblock %}
-</body>
-</html>
+  document.querySelectorAll('.filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderCards(btn.dataset.status, document.getElementById('search').value);
+    });
+  });
+
+  document.getElementById('search').addEventListener('input', e => {
+    const active = document.querySelector('.filter.active').dataset.status;
+    renderCards(active, e.target.value);
+  });
+
+  window.onload = fetchWorkflowsFromAPI;
+</script>
+{% endblock %}

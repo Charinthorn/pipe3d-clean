@@ -1,139 +1,183 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pipe Spool Labeling Station</title>
-  <style>
-    :root {
-      --primary: #007bff;
-      --bg: #f9f9f9;
-      --card: #fff;
-      --text: #333;
-      --muted: #666;
-      --success: #28a745;
-      --warning: #ffc107;
-      --danger: #dc3545;
-      --highlight-bg: rgba(255, 193, 7, 0.2);
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text);
-      display: flex; flex-direction: column; height: 100vh;
-    }
-    header {
-      background: var(--primary); color: #fff; padding: 1rem; text-align: center;
-      font-size: 1.25rem; font-weight: 600;
-    }
-    .container {
-      flex: 1; display: flex; flex-direction: column; padding: 1rem; gap: 1rem;
-    }
-    .toolbar {
-      display: flex; gap: 1rem; align-items: center; justify-content: space-between;
-    }
-    .card {
-      background: var(--card); padding: 1rem; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      display: flex; align-items: center; gap: 1rem;
-    }
-    .scan-input {
-      flex: 1; display: flex; gap: 0.5rem;
-    }
-    .scan-input input {
-      flex: 1; padding: 0.5rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px;
-    }
-    .btn {
-      padding: 0.5rem 1rem; border: none; border-radius: 4px;
-      font-size: 1rem; cursor: pointer; color: #fff;
-    }
-    .btn-primary { background: var(--primary); }
-    .btn-disabled { background: #888; cursor: not-allowed; }
-    .readings {
-      display: flex; gap: 2rem;
-    }
-    .reading {
-      display: flex; flex-direction: column; text-align: center;
-    }
-    .reading .value {
-      font-size: 1.5rem; font-weight: bold; margin-top: 0.25rem;
-    }
-    .table-wrapper {
-      flex: 1; overflow-y: auto; background: var(--card); border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-    table {
-      width: 100%; border-collapse: collapse;
-    }
-    thead th {
-      position: sticky; top: 0; background: var(--primary); color: #fff; padding: 0.75rem;
-      text-align: left;
-    }
-    tbody tr {
-      border-bottom: 1px solid #eee;
-      transition: background 0.2s;
-    }
-    tbody tr:hover { background: #f1f1f1; }
-    tbody tr.highlight { background: var(--highlight-bg); }
-    td {
-      padding: 0.75rem; vertical-align: middle;
-    }
-    .status {
-      font-weight: 600;
-    }
-    .status.Matched { color: var(--success); }
-    .status.Mismatch { color: var(--danger); }
-    .action-btn {
-      padding: 0.3rem 0.75rem; font-size: 0.9rem;
-    }
-  </style>
-</head>
-<body>
-  {% extends "base.html" %}
+{% extends "base.html" %}
 
-  {% block title %}Pipe Spool Labeling Station{% endblock %}
+{% block title %}Pipe Spool Labeling Station{% endblock %}
 
-  {% block content %}
-  <header>Pipe Spool Labeling Station</header>
-  <div class="container">
-    <div class="toolbar">
-      <div class="card scan-input">
-        <input type="text" id="cartBarcode" placeholder="Scan Cart Barcode..." />
-        <button id="loadCartBtn" class="btn btn-primary">Load Cart</button>
-      </div>
-      <div class="card readings">
-        <div class="reading">
-          <span>Diameter (mm)</span>
-          <span id="currentDia" class="value">-</span>
-        </div>
-        <div class="reading">
-          <span>Weight (kg)</span>
-          <span id="currentWeight" class="value">-</span>
-        </div>
-      </div>
+{% block head %}
+<style>
+  :root {
+    --primary: #007bff;
+    --bg: #f9f9f9;
+    --card: #fff;
+    --text: #333;
+    --muted: #666;
+    --success: #28a745;
+    --warning: #ffc107;
+    --danger: #dc3545;
+    --highlight-bg: rgba(255, 193, 7, 0.2);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; 
+    font-family: 'Segoe UI', sans-serif; 
+    background: var(--bg); 
+    color: var(--text);
+    display: flex; 
+    flex-direction: column; 
+    height: 100vh;
+  }
+  header {
+    background: var(--primary); 
+    color: #fff; 
+    padding: 1rem; 
+    text-align: center;
+    font-size: 1.25rem; 
+    font-weight: 600;
+  }
+  .container {
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    padding: 1rem; 
+    gap: 1rem;
+  }
+  .toolbar {
+    display: flex; 
+    gap: 1rem; 
+    align-items: center; 
+    justify-content: space-between;
+  }
+  .card {
+    background: var(--card); 
+    padding: 1rem; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    display: flex; 
+    align-items: center; 
+    gap: 1rem;
+  }
+  .scan-input {
+    flex: 1; 
+    display: flex; 
+    gap: 0.5rem;
+  }
+  .scan-input input {
+    flex: 1; 
+    padding: 0.5rem; 
+    font-size: 1rem; 
+    border: 1px solid #ccc; 
+    border-radius: 4px;
+  }
+  .btn {
+    padding: 0.5rem 1rem; 
+    border: none; 
+    border-radius: 4px;
+    font-size: 1rem; 
+    cursor: pointer; 
+    color: #fff;
+  }
+  .btn-primary { background: var(--primary); }
+  .btn-disabled { background: #888; cursor: not-allowed; }
+  .readings {
+    display: flex; 
+    gap: 2rem;
+  }
+  .reading {
+    display: flex; 
+    flex-direction: column; 
+    text-align: center;
+  }
+  .reading .value {
+    font-size: 1.5rem; 
+    font-weight: bold; 
+    margin-top: 0.25rem;
+  }
+  .table-wrapper {
+    flex: 1; 
+    overflow-y: auto; 
+    background: var(--card); 
+    border-radius: 8px; 
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  }
+  table {
+    width: 100%; 
+    border-collapse: collapse;
+  }
+  thead th {
+    position: sticky; 
+    top: 0; 
+    background: var(--primary); 
+    color: #fff; 
+    padding: 0.75rem;
+    text-align: left;
+  }
+  tbody tr {
+    border-bottom: 1px solid #eee;
+    transition: background 0.2s;
+  }
+  tbody tr:hover { background: #f1f1f1; }
+  tbody tr.highlight { background: var(--highlight-bg); }
+  td {
+    padding: 0.75rem; 
+    vertical-align: middle;
+  }
+  .status {
+    font-weight: 600;
+  }
+  .status.Matched { color: var(--success); }
+  .status.Mismatch { color: var(--danger); }
+  .action-btn {
+    padding: 0.3rem 0.75rem; 
+    font-size: 0.9rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<header>Pipe Spool Labeling Station</header>
+<div class="container">
+  <div class="toolbar">
+    <div class="card scan-input">
+      <input type="text" id="cartBarcode" placeholder="Scan Cart Barcode..." />
+      <button id="loadCartBtn" class="btn btn-primary">Load Cart</button>
     </div>
-
-    <div class="table-wrapper">
-      <table id="spoolTable">
-        <thead>
-          <tr>
-            <th>Spool ID</th>
-            <th>SO No</th>
-            <th>Size</th>
-            <th>Length</th>
-            <th>End1/End2</th>
-            <th>Vent Hole</th>
-            <th>OD (mm)</th> <!-- ✅ เพิ่มคอลัมน์นี้ -->
-            <th>Calc. Weight</th>
-            <th>Status</th>
-            <th>Meas. Dia</th>
-            <th>Meas. Wt</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+    <div class="card readings">
+      <div class="reading">
+        <span>Diameter (mm)</span>
+        <span id="currentDia" class="value">-</span>
+      </div>
+      <div class="reading">
+        <span>Weight (kg)</span>
+        <span id="currentWeight" class="value">-</span>
+      </div>
     </div>
   </div>
 
-  <script>
+  <div class="table-wrapper">
+    <table id="spoolTable">
+      <thead>
+        <tr>
+          <th>Spool ID</th>
+          <th>SO No</th>
+          <th>Size</th>
+          <th>Length</th>
+          <th>End1/End2</th>
+          <th>Vent Hole</th>
+          <th>OD (mm)</th> <!-- ✅ เพิ่มคอลัมน์นี้ -->
+          <th>Calc. Weight</th>
+          <th>Status</th>
+          <th>Meas. Dia</th>
+          <th>Meas. Wt</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
   let spoolList = [], pollingInterval;
 
   const loadBtn = document.getElementById('loadCartBtn');
@@ -244,15 +288,15 @@
     spoolList.forEach(spool => {
       const matched = pipeData.find(p => p["Spool ID"] === spool.id);
       if (matched) {
-        spool.so_no = matched["SO"];
-        spool.dia = matched["Size"];
-        spool.length = matched["Length"];
-        spool.end1 = matched["End1"];
-        spool.end2 = matched["End2"];
+        spool.so_no     = matched["SO"];
+        spool.dia       = matched["Size"];
+        spool.length    = matched["Length"];
+        spool.end1      = matched["End1"];
+        spool.end2      = matched["End2"];
         spool.vent_hole = matched["Vent Hole"];
-        spool.file_dwg = matched["file_dwg"];
-        spool.weight = calculateWeight(spool);
-        spool.od_mm = getODFromSize(spool.dia); // ✅ เพิ่ม OD mm
+        spool.file_dwg  = matched["file_dwg"];
+        spool.weight    = calculateWeight(spool);
+        spool.od_mm     = getODFromSize(spool.dia); // ✅ เพิ่ม OD mm
       } else {
         console.warn(`❌ No match found for spool ${spool.id}`);
       }
@@ -262,7 +306,7 @@
   function populateTable() {
     const tbody = document.querySelector('#spoolTable tbody');
     tbody.innerHTML = '';
-    spoolList.forEach((s,i) => {
+    spoolList.forEach((s, i) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${s.id}</td>
@@ -286,7 +330,7 @@
     pollingInterval = setInterval(async () => {
       const dia = await measureDiameter();
       const wt  = await measureWeight();
-      document.getElementById('currentDia').textContent = dia.toFixed(1);
+      document.getElementById('currentDia').textContent    = dia.toFixed(1);
       document.getElementById('currentWeight').textContent = wt.toFixed(1);
       highlightClosest(dia, wt);
     }, 1000);
@@ -294,13 +338,14 @@
 
   function highlightClosest(dia, wt) {
     if (!spoolList.length) return;
-    let bestIdx = 0;
-    let bestScore = Infinity;
+    let bestIdx    = 0;
+    let bestScore  = Infinity;
     spoolList.forEach((s, idx) => {
-      const score = Math.abs(parseFloat(s.od_mm || 0) - dia) + Math.abs(parseFloat(s.weight || 0) - wt);
+      const score = Math.abs(parseFloat(s.od_mm || 0) - dia)
+                  + Math.abs(parseFloat(s.weight || 0) - wt);
       if (score < bestScore) {
         bestScore = score;
-        bestIdx = idx;
+        bestIdx   = idx;
       }
     });
     const rows = document.querySelectorAll('#spoolTable tbody tr');
@@ -308,17 +353,17 @@
   }
 
   async function startMeasure(i, btn) {
-    const dia = parseFloat(document.getElementById('currentDia').textContent) || 0;
+    const dia = parseFloat(document.getElementById('currentDia').textContent)    || 0;
     const wt  = parseFloat(document.getElementById('currentWeight').textContent) || 0;
     const row = btn.closest('tr');
-    row.querySelector('.measuredDia').textContent = dia;
+    row.querySelector('.measuredDia').textContent    = dia;
     row.querySelector('.measuredWeight').textContent = wt;
     const spool = spoolList[i];
-    const st = row.querySelector('.status');
+    const st    = row.querySelector('.status');
     if (matchSpool(spool, dia, wt)) {
       st.textContent = 'Matched';
-      st.className = 'status Matched';
-      btn.disabled = true;
+      st.className   = 'status Matched';
+      btn.disabled   = true;
       btn.classList.add('btn-disabled');
       btn.textContent = 'Printed';
 
@@ -330,12 +375,13 @@
       });
     } else {
       st.textContent = 'Mismatch';
-      st.className = 'status Mismatch';
+      st.className   = 'status Mismatch';
     }
   }
 
   function matchSpool(s, d, w) {
-    return Math.abs(parseFloat(s.od_mm || 0) - d) <= 5 && Math.abs(parseFloat(s.weight || 0) - w) <= 2;
+    return Math.abs(parseFloat(s.od_mm || 0) - d) <= 5 
+        && Math.abs(parseFloat(s.weight || 0) - w) <= 2;
   }
 
   function measureDiameter() {
@@ -353,5 +399,3 @@
   }
 </script>
 {% endblock %}
-</body>
-</html>

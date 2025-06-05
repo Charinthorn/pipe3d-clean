@@ -1,216 +1,211 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lining – Auto Scan QR </title>
-  <style>
-    body {
-      font-family: "Segoe UI", Tahoma, sans-serif;
-      background: #f4f4f6;
-      margin: 0;
-      padding: 30px;
-      color: #333;
-    }
-    h2 {
-      margin-bottom: 12px;
-      color: #2c3e50;
+{% extends "base.html" %}
+
+{% block title %}Lining – Auto Scan QR{% endblock %}
+
+{% block head %}
+<style>
+  body {
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    background: #f4f4f6;
+    margin: 0;
+    padding: 30px;
+    color: #333;
+  }
+  h2 {
+    margin-bottom: 12px;
+    color: #2c3e50;
+  }
+
+  /* กล่องสแกน QR */
+  #scanContainer {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+  }
+  #scanContainer input {
+    width: 95%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+
+  /* กล่องแสดงรายการท่อ */
+  #spoolListContainer {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    margin-top: 20px;
+    position: relative;
+    display: none; /* เริ่มต้นซ่อน */
+  }
+  #spoolListContainer h3 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    color: #2c3e50;
+    font-size: 18px;
+  }
+  #spoolList {
+    list-style: none;
+    padding: 0;
+  }
+  #spoolList li {
+    font-size: 16px;
+    padding: 8px 12px;
+    background-color: #f9fafb;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+
+  /* ปุ่ม Submit */
+  #submitBtn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    padding: 6px 12px;
+    font-size: 14px;
+    border: none;
+    border-radius: 4px;
+    background: #30c662;
+    color: white;
+    cursor: pointer;
+  }
+  #submitBtn:hover {
+    background: #23c83c;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<h2>🧩 Lining – Auto Scan QR</h2>
+
+<!-- กล่องสแกน QR (รับข้อมูลอัตโนมัติเมื่อสแกนเสร็จ) -->
+<div id="scanContainer">
+  <label for="cartInput"><strong>📦 Scan Cart Barcode:</strong></label><br><br>
+  <input type="text" id="cartInput" placeholder="เช่น CART-745 S014 S020 S015" autofocus />
+</div>
+
+<!-- กล่องแสดงรายการท่อ (เริ่มต้นซ่อน) -->
+<div id="spoolListContainer">
+  <!-- ปุ่ม Submit -->
+  <button id="submitBtn" onclick="submitCart()">Submit</button>
+  <!-- แสดง Cart ID -->
+  <h3 id="cartHeader">🚚 Cart ID: </h3>
+  <ul id="spoolList"></ul>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+  let debounceTimer = null;
+  let currentCartId = "";
+  let currentSpools = [];
+
+  // เมื่อค่าใน input เปลี่ยน (รับข้อมูลอัตโนมัติเมื่อสแกนเสร็จ) ให้ debounce ราว 300ms
+  document.getElementById('cartInput').addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      processScan();
+    }, 300);
+  });
+
+  /**
+   * processScan()
+   * อ่านค่าจาก #cartInput แล้วแยกเป็นคำ หากเจอรหัสท่อ (Sxxx)
+   * จะดึง Cart ID และรายการ Spool IDs มาแสดง
+   */
+  function processScan() {
+    const raw = document.getElementById('cartInput').value.trim();
+    if (!raw) return;
+
+    // แยกข้อความตาม whitespace
+    const parts = raw.split(/\s+/);
+    const cartId = parts[0].toUpperCase();
+    // กรองเฉพาะคำที่ขึ้นต้นด้วย S ตามด้วยตัวเลข (เช่น S014)
+    const spools = parts.slice(1)
+                        .filter(p => /^S\d+/i.test(p))
+                        .map(p => p.toUpperCase());
+
+    if (spools.length === 0) {
+      alert('⚠️ ไม่พบรหัสท่อ (รูปแบบ Sxxx) ในข้อมูลที่สแกน');
+      document.getElementById('cartInput').value = "";
+      return;
     }
 
-    /* กล่องสแกน QR */
-    #scanContainer {
-      background: #ffffff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-    #scanContainer input {
-      width: 95%;
-      padding: 10px;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
+    // เก็บ Cart ID และ Spool IDs ไว้เพื่อใช้ตอน Submit
+    currentCartId = cartId;
+    currentSpools = spools.slice();
 
-    /* กล่องแสดงรายการท่อ */
-    #spoolListContainer {
-      background: #ffffff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      margin-top: 20px;
-      position: relative;
-      display: none; /* เริ่มต้นซ่อน */
-    }
-    #spoolListContainer h3 {
-      margin-top: 0;
-      margin-bottom: 12px;
-      color: #2c3e50;
-      font-size: 18px;
-    }
-    #spoolList {
-      list-style: none;
-      padding: 0;
-    }
-    #spoolList li {
-      font-size: 16px;
-      padding: 8px 12px;
-      background-color: #f9fafb;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      margin-bottom: 8px;
-    }
+    // แสดงรายการท่อบนหน้า
+    const listContainer = document.getElementById('spoolListContainer');
+    const listEl = document.getElementById('spoolList');
+    const header = document.getElementById('cartHeader');
 
-    /* ปุ่ม Submit */
-    #submitBtn {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      padding: 6px 12px;
-      font-size: 14px;
-      border: none;
-      border-radius: 4px;
-      background: #30c662;
-      color: white;
-      cursor: pointer;
-    }
-    #submitBtn:hover {
-      background: #23c83c;
-    }
-  </style>
-</head>
-<body>
-  {% extends "base.html" %}
-
-  {% block title %}Lining – Auto Scan QR{% endblock %}
-
-  {% block content %}
-  <h2>🧩 Lining – Auto Scan QR </h2>
-
-  <!-- กล่องสแกน QR (รับข้อมูลอัตโนมัติเมื่อสแกนเสร็จ) -->
-  <div id="scanContainer">
-    <label for="cartInput"><strong>📦 Scan Cart Barcode:</strong></label><br><br>
-    <input type="text" id="cartInput" placeholder="เช่น CART-745 S014 S020 S015" autofocus />
-  </div>
-
-  <!-- กล่องแสดงรายการท่อ (เริ่มต้นซ่อน) -->
-  <div id="spoolListContainer">
-    <!-- ปุ่ม Submit -->
-    <button id="submitBtn" onclick="submitCart()">Submit</button>
-    <!-- แสดง Cart ID -->
-    <h3 id="cartHeader">🚚 Cart ID: </h3>
-    <ul id="spoolList"></ul>
-  </div>
-
-  <script>
-    let debounceTimer = null;
-    let currentCartId = "";
-    let currentSpools = [];
-
-    // เมื่อค่าใน input เปลี่ยน (รับข้อมูลอัตโนมัติเมื่อสแกนเสร็จ) ให้ debounce ราว 300ms
-    document.getElementById('cartInput').addEventListener('input', () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        processScan();
-      }, 300);
+    header.textContent = `🚚 Cart ID: ${cartId}`;
+    listEl.innerHTML = "";
+    spools.forEach((s, idx) => {
+      const li = document.createElement('li');
+      li.textContent = `${idx + 1}. ${s}`;
+      listEl.appendChild(li);
     });
 
-    /**
-     * processScan()
-     * อ่านค่าจาก #cartInput แล้วแยกเป็นคำ หากเจอรหัสท่อ (Sxxx)
-     * จะดึง Cart ID และรายการ Spool IDs มาแสดง
-     */
-    function processScan() {
-      const raw = document.getElementById('cartInput').value.trim();
-      if (!raw) return;
+    listContainer.style.display = 'block';
+    // ล้าง input ให้พร้อมสแกนครั้งต่อไป
+    document.getElementById('cartInput').value = "";
+  }
 
-      // แยกข้อความตาม whitespace
-      const parts = raw.split(/\s+/);
-      const cartId = parts[0].toUpperCase();
-      // กรองเฉพาะคำที่ขึ้นต้นด้วย S ตามด้วยตัวเลข (เช่น S014)
-      const spools = parts.slice(1)
-                          .filter(p => /^S\d+/i.test(p))
-                          .map(p => p.toUpperCase());
+  /**
+   * submitCart()
+   * เมื่อกด Submit จะส่ง payload { spool_ids: [...], status: "finished" }
+   * ไปที่ endpoint /api/update_status_lining
+   */
+  async function submitCart() {
+    if (!currentCartId || currentSpools.length === 0) {
+      alert('⚠️ ยังไม่มี Cart หรือไม่มี Spool ให้ส่ง กรุณาสแกนก่อน');
+      return;
+    }
 
-      if (spools.length === 0) {
-        alert('⚠️ ไม่พบรหัสท่อ (รูปแบบ Sxxx) ในข้อมูลที่สแกน');
-        document.getElementById('cartInput').value = "";
-        return;
-      }
+    const payload = {
+      spool_ids: currentSpools,
+      status: "finished"
+    };
 
-      // เก็บ Cart ID และ Spool IDs ไว้เพื่อใช้ตอน Submit
-      currentCartId = cartId;
-      currentSpools = spools.slice();
-
-      // แสดงรายการท่อบนหน้า
-      const listContainer = document.getElementById('spoolListContainer');
-      const listEl = document.getElementById('spoolList');
-      const header = document.getElementById('cartHeader');
-
-      header.textContent = `🚚 Cart ID: ${cartId}`;
-      listEl.innerHTML = "";
-      spools.forEach((s, idx) => {
-        const li = document.createElement('li');
-        li.textContent = `${idx + 1}. ${s}`;
-        listEl.appendChild(li);
+    try {
+      const response = await fetch('/api/update_status_lining', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      listContainer.style.display = 'block';
-      // ล้าง input ให้พร้อมสแกนครั้งต่อไป
-      document.getElementById('cartInput').value = "";
-    }
-
-    /**
-     * submitCart()
-     * เมื่อกด Submit จะส่ง payload { spool_ids: [...], status: "finished" }
-     * ไปที่ endpoint /api/update_status_lining
-     */
-    async function submitCart() {
-      if (!currentCartId || currentSpools.length === 0) {
-        alert('⚠️ ยังไม่มี Cart หรือไม่มี Spool ให้ส่ง กรุณาสแกนก่อน');
-        return;
+      const result = await response.json();
+      if (result.success) {
+        alert(`✅ อัปเดต status_lining เป็น 'finished' สำเร็จ (${result.updated} รายการ)`);
+        clearCart();
+      } else {
+        alert(`❌ เกิดข้อผิดพลาด: ${result.message || 'ไม่ทราบสาเหตุ'}`);
       }
-
-      const payload = {
-        spool_ids: currentSpools,
-        status: "finished"
-      };
-
-      try {
-        const response = await fetch('/api/update_status_lining', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        const result = await response.json();
-        if (result.success) {
-          alert(`✅ อัปเดต status_lining เป็น 'finished' สำเร็จ (${result.updated} รายการ)`);
-          clearCart();
-        } else {
-          alert(`❌ เกิดข้อผิดพลาด: ${result.message || 'ไม่ทราบสาเหตุ'}`);
-        }
-      } catch (err) {
-        console.error(err);
-        alert(`❌ ไม่สามารถส่งข้อมูลไปยังเซิร์ฟเวอร์: ${err.message}`);
-      }
+    } catch (err) {
+      console.error(err);
+      alert(`❌ ไม่สามารถส่งข้อมูลไปยังเซิร์ฟเวอร์: ${err.message}`);
     }
+  }
 
-    /**
-     * clearCart()
-     * ซ่อนและล้างรายการท่อออกจากหน้า พร้อมคืนค่า currentCartId, currentSpools เป็นค่าว่าง
-     */
-    function clearCart() {
-      const listContainer = document.getElementById('spoolListContainer');
-      listContainer.style.display = 'none';
-      document.getElementById('spoolList').innerHTML = '';
-      document.getElementById('cartHeader').textContent = '🚚 Cart ID: ';
-      currentCartId = "";
-      currentSpools = [];
-    }
-  </script>
-  {% endblock %}
-</body>
-</html>
+  /**
+   * clearCart()
+   * ซ่อนและล้างรายการท่อออกจากหน้า พร้อมคืนค่า currentCartId, currentSpools เป็นค่าว่าง
+   */
+  function clearCart() {
+    const listContainer = document.getElementById('spoolListContainer');
+    listContainer.style.display = 'none';
+    document.getElementById('spoolList').innerHTML = '';
+    document.getElementById('cartHeader').textContent = '🚚 Cart ID: ';
+    currentCartId = "";
+    currentSpools = [];
+  }
+</script>
+{% endblock %}
