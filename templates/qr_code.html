@@ -119,7 +119,7 @@
 
     // ✅ ส่งไปอัปเดตสถานะทันทีเป็น in-progress
     try {
-      await fetch("http://localhost:8000/api/update_status_assembly", {
+      await fetch("/api/update_status_assembly", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -166,7 +166,7 @@
   // ✅ ค้นหาจาก Spool ID (คอลัมน์ที่ 0)
   async function fetchSpoolInfoFromSO(spoolId) {
     try {
-      const res = await fetch("http://localhost:8000/api/pipes");
+      const res = await fetch("/api/pipes");
       const data = await res.json();
 
       const match = data.find(row =>
@@ -232,7 +232,7 @@
     }
 
     // 🔁 ส่งสถานะ "finished" ไปยัง Google Sheet
-    fetch("http://localhost:8000/api/update_status_assembly", {
+    fetch("/api/update_status_assembly", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ spool_id: spoolId, status: "finished" })

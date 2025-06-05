@@ -210,7 +210,7 @@
     startPolling();
 
     // ✅ Update status_labeling = "in-progress" ผ่าน API
-    await fetch("http://localhost:8000/api/update_status_labeling", {
+    await fetch("/api/update_status_labeling", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ spool_ids: spoolIds, status: "in-progress" })
@@ -219,7 +219,7 @@
 
   async function fetchAllPipeData() {
     try {
-      const res = await fetch("http://localhost:8000/api/pipes");
+      const res = await fetch("/api/pipes");
       if (!res.ok) throw new Error("Failed to fetch pipe data");
       const data = await res.json();
       const [header, ...rows] = data;
@@ -318,7 +318,7 @@
       btn.textContent = 'Printed';
 
       // ✅ Update status_labeling = "finished"
-      await fetch("http://localhost:8000/api/update_status_labeling", {
+      await fetch("/api/update_status_labeling", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ spool_ids: [spool.id], status: "finished" })

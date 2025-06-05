@@ -140,7 +140,7 @@
 
       // อัปเดตสถานะเป็น in-progress
       const spoolId = barcode.split('-').pop();
-      fetch("http://localhost:8000/api/update_status_coating", {
+      fetch("/api/update_status_coating", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ spool_id: spoolId, status: "in-progress" })
@@ -184,7 +184,7 @@
       if (confirmFinish) {
         // ✅ อัปเดตสถานะใน Google Sheet เฉพาะเมื่อกด OK
         const spoolShort = spoolId.split("-").pop(); // เช่น S020 จาก CART-745-S020
-        fetch("http://localhost:8000/api/update_status_coating", {
+        fetch("/api/update_status_coating", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ spool_id: spoolShort, status: "finished" })

@@ -300,7 +300,7 @@
       });
 
       // ✅ Update status_blasting to 'finished'
-      fetch("http://localhost:8000/api/update_status_blasting", {
+      fetch("/api/update_status_blasting", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ spool_ids: spoolIds, status: "finished" })

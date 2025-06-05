@@ -174,7 +174,7 @@
       };
 
       try {
-        const response = await fetch('http://localhost:8000/api/update_status_lining', {
+        const response = await fetch('/api/update_status_lining', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)

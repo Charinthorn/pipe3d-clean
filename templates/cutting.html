@@ -211,7 +211,7 @@
     }
 
     function generateLabel(spool_id, so_no, size, length) {
-      fetch('http://localhost:8000/api/generate_label', {
+      fetch('/api/generate_label', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ spool_id, so_no, size, length })
@@ -273,7 +273,7 @@
         return;
       }
 
-      fetch('http://localhost:8000/api/generate_step', {
+      fetch('/api/generate_step', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -307,7 +307,7 @@
         };
       });
 
-      fetch('http://localhost:8000/api/generate_steps_zip', {
+      fetch('/api/generate_steps_zip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -489,7 +489,7 @@
       }
 
       // ✅ ส่งไปยัง backend
-      fetch('http://localhost:8000/api/update_status', {
+      fetch('/api/update_status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ spool_id: id, status })
