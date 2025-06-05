@@ -663,4 +663,4 @@ def get_pipe_statuses():
 
 @app.get("/", response_class=HTMLResponse)
 async def read_home(request: Request):
-    return templates.TemplateResponse("Dashboard.html", {"request": request})
+    return templates.TemplateResponse("cutting.html", {"request": request})
