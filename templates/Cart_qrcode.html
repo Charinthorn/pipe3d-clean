@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pipe Spool Shot Blasting</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    header {
+      background: #007bff;
+      color: #fff;
+      padding: 16px 24px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.5em;
+    }
+    .steps {
+      display: flex;
+      border-bottom: 1px solid #e1e4e8;
+    }
+    .step {
+      flex: 1;
+      text-align: center;
+      padding: 12px 0;
+      position: relative;
+    }
+    .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 60%;
+      border-right: 1px solid #e1e4e8;
+    }
+    .step.active {
+      background: #e7f1ff;
+      font-weight: bold;
+    }
+    .main {
+      display: flex;
+      padding: 24px;
+    }
+    .panel {
+      flex: 1;
+      padding: 0 16px;
+    }
+    .panel + .panel {
+      border-left: 1px solid #e1e4e8;
+    }
+    .panel h2 {
+      font-size: 1.1em;
+      margin-bottom: 8px;
+    }
+    .panel input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      font-size: 1em;
+      margin-bottom: 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .spool-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .spool-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid #eee;
+    }
+    .spool-item:last-child { border-bottom: none; }
+    .spool-item .remove {
+      color: #dc3545;
+      cursor: pointer;
+    }
+    .actions {
+      text-align: center;
+      margin: 16px 0;
+    }
+    .actions button {
+      padding: 10px 20px;
+      margin: 0 8px;
+      font-size: 1em;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn-assign { background: #28a745; color: #fff; }
+    .btn-reset  { background: #6c757d; color: #fff; }
+    .btn-generateQR { background: #ffc107; color: #000; }
+    .btn-printQR    { background: #17a2b8; color: #fff; }
+    .btn-assign:disabled { background: #94d3a2; cursor: not-allowed; }
+    .visual-cart-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 8px;
+      background: #fafafa;
+    }
+    .status-bar {
+      background: #f8f9fa;
+      padding: 12px 24px;
+      border-top: 1px solid #e1e4e8;
+      font-size: 0.95em;
+      color: #555;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header><h1>📦 Pipe Spool Shot Blasting Station</h1></header>
+
+    <div class="steps">
+      <div class="step active" id="step1">1. Scan Spools</div>
+      <div class="step" id="step2">2. Scan Cart</div>
+      <div class="step" id="step3">3. Assign</div>
+    </div>
+
+    <div class="main">
+      <div class="panel">
+        <h2>Scan Spool Barcode</h2>
+        <input type="text" id="spoolInput" placeholder="Scan or type SPOOL-0001" autofocus />
+
+        <h2>Scan Cart Barcode</h2>
+        <input type="text" id="cartInput" placeholder="Scan or type CART-01" />
+      </div>
+
+      <div class="panel">
+        <h2>Scanned Spools (<span id="spoolCount">0</span>)</h2>
+        <div class="spool-list" id="spoolList"></div>
+
+        <h2 style="margin-top:24px;">Visual Cart</h2>
+        <div class="visual-cart-list" id="cartView"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-assign" id="assignBtn" disabled>Assign to Cart</button>
+      <button class="btn-reset" onclick="resetAll()">Reset</button>
+      <button class="btn-generateQR" onclick="generateQRCode()">Generate Cart Code</button>
+      <button class="btn-printQR" onclick="printQRCode()">🖨️ Print QR Code</button>
+    </div>
+
+    <div id="qrResult" style="text-align:center; margin-top:20px;"></div>
+    <div class="status-bar" id="statusBar">
+      Cart: <strong id="currentCart">None</strong> | Spools scanned: <strong id="spoolCount2">0</strong>
+    </div>
+  </div>
+
+  <script>
+    let spools = [];
+    let cartCode = "";
+
+    const spoolInput = document.getElementById("spoolInput");
+    const cartInput = document.getElementById("cartInput");
+    const spoolListEl = document.getElementById("spoolList");
+    const cartView = document.getElementById("cartView");
+    const assignBtn = document.getElementById("assignBtn");
+    const currentCart = document.getElementById("currentCart");
+    const spoolCount = document.getElementById("spoolCount");
+    const spoolCount2 = document.getElementById("spoolCount2");
+    const step1 = document.getElementById("step1");
+    const step2 = document.getElementById("step2");
+    const step3 = document.getElementById("step3");
+
+    function refreshList() {
+      spoolListEl.innerHTML = "";
+      spools.forEach((code, i) => {
+        const row = document.createElement("div");
+        row.className = "spool-item";
+        row.innerHTML = `<span>#${i + 1}: ${code}</span>
+                         <span class="remove" onclick="removeSpool(${i})">✕</span>`;
+        spoolListEl.appendChild(row);
+      });
+      spoolCount.textContent = spools.length;
+      spoolCount2.textContent = spools.length;
+      checkEnableAssign();
+      highlightStep();
+    }
+
+    function highlightStep() {
+      step1.classList.toggle("active", spools.length < 1);
+      step2.classList.toggle("active", spools.length >= 1 && !cartCode);
+      step3.classList.toggle("active", spools.length >= 1 && !!cartCode);
+    }
+
+    function checkEnableAssign() {
+      assignBtn.disabled = !(spools.length > 0 && !!cartCode);
+    }
+
+    let spoolTimer;
+    spoolInput.addEventListener("input", () => {
+      clearTimeout(spoolTimer);
+      spoolTimer = setTimeout(() => {
+        let rawInput = spoolInput.value.trim();
+        if (!rawInput) return;
+
+        if (!spools.includes(rawInput)) {
+          spools.push(rawInput);      // ✅ เก็บข้อมูลเต็มจาก input
+          refreshList();
+        }
+        spoolInput.value = "";         // ✅ ล้างช่องสแกน
+      }, 200);
+    });
+
+    cartInput.addEventListener("keypress", e => {
+      if (e.key === "Enter") {
+        cartCode = cartInput.value.trim().toUpperCase();
+        if (cartCode) {
+          currentCart.textContent = cartCode;
+          refreshList();
+          updateVisualCart();
+        }
+        cartInput.value = "";
+      }
+    });
+
+    function removeSpool(idx) {
+      spools.splice(idx, 1);
+      refreshList();
+    }
+
+    assignBtn.addEventListener("click", () => {
+      cartView.innerHTML = "";
+      spools.forEach((code, i) => {
+        const row = document.createElement("div");
+        row.textContent = `#${i + 1}: ${code}`;
+        cartView.appendChild(row);
+      });
+      alert(`✅ Assigned ${spools.length} spools to cart ${cartCode}`);
+    });
+
+    function resetAll() {
+      spools = [];
+      cartCode = "";
+      currentCart.textContent = "None";
+      spoolInput.value = "";
+      cartInput.value = "";
+      cartView.innerHTML = "";
+      document.getElementById("qrResult").innerHTML = "";
+      refreshList();
+    }
+
+    function generateQRCode() {
+      if (spools.length === 0) {
+        alert("No spools to assign.");
+        return;
+      }
+
+      const newCartCode = `CART-${String(Math.floor(Math.random() * 900) + 100)}`;
+      cartCode = newCartCode;
+      currentCart.textContent = cartCode;
+      cartInput.value = cartCode;
+
+      refreshList();
+      updateVisualCart();  // <<== เพิ่มตรงนี้
+      alert(`✅ Generated and assigned ${cartCode} for this group.`);
+    }
+
+
+    function updateVisualCart() {
+      cartView.innerHTML = "";
+      spools.forEach((code, i) => {
+        const row = document.createElement("div");
+        row.textContent = `#${i + 1}: ${code}`;
+        cartView.appendChild(row);
+      });
+    }
+
+    function printQRCode() {
+      if (!cartCode || spools.length === 0) {
+        alert("\u274c Please assign a cart and scan at least one spool before printing.");
+        return;
+      }
+
+      const spoolIds = spools.map(s => {
+        const match = s.match(/(S\d+)/i);
+        return match ? match[1] : s;
+      });
+
+      // ✅ Update status_blasting to 'finished'
+      fetch("http://localhost:8000/api/update_status_blasting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ spool_ids: spoolIds, status: "finished" })
+      })
+        .then(res => res.json())
+        .then(data => {
+          console.log("Status updated:", data);
+          proceedToPrint();
+        })
+        .catch(err => {
+          console.error("Update error:", err);
+          proceedToPrint(); // continue to print anyway
+        });
+    }
+
+    function proceedToPrint() {
+      const qrText = [cartCode]
+        .concat(spools.map(s => {
+          const match = s.match(/(S\d+)/i);
+          return match ? match[1] : s;
+        }))
+        .join(' ');
+
+      const encodedQrText = JSON.stringify(qrText);
+      const printWindow = window.open("", "_blank");
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Print Cart Label</title>
+            <style>
+              @media print {
+                @page { size: 4cm 3cm; margin: 0; }
+                body {
+                  margin: 0;
+                  padding: 0;
+                  width: 4cm;
+                  height: 3cm;
+                  display: flex;
+                  flex-direction: column;
+                  justify-content: flex-start;
+                  align-items: center;
+                  font-family: Arial, sans-serif;
+                }
+                h2 {
+                  font-size: 5px;
+                  margin: 2mm 0 0 0;
+                }
+                #totalSpools {
+                  font-size: 5px;
+                  margin-bottom: 2mm;
+                }
+                #qrcode {
+                  width: 13mm;
+                  height: 13mm;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <h2>${cartCode}</h2>
+            <div id="totalSpools">Total Spools: ${spools.length}</div>
+            <div id="qrcode"></div>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+            <script>
+              const qrText = ${encodedQrText};
+              setTimeout(() => {
+                new QRCode(document.getElementById("qrcode"), {
+                  text: qrText,
+                  width: 50,
+                  height: 50
+                });
+                setTimeout(() => {
+                  window.print();
+                  window.onafterprint = () => window.close();
+                }, 500);
+              }, 200);
+            <\/script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+
+    refreshList();
+  </script>
+</body>
+</html>

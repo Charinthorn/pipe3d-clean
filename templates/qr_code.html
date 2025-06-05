@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Workstation Assembly</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #f4f7fb;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .screen {
+      max-width: 1000px;
+      margin: auto;
+      padding: 40px;
+      display: none;
+    }
+    .active {
+      display: block;
+    }
+    .scanner-screen input {
+      font-size: 28px;
+      padding: 16px;
+      width: 100%;
+      border: 2px solid #ccc;
+      border-radius: 12px;
+    }
+    iframe {
+      width: 100%;
+      height: 400px;
+      border: none;
+      margin-top: 20px;
+      border-radius: 12px;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      font-size: 18px;
+      padding: 12px;
+      background-color: #e9eef5;
+      margin: 8px 0;
+      border-radius: 8px;
+    }
+    button {
+      margin-top: 30px;
+      padding: 16px;
+      font-size: 20px;
+      width: 100%;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+    .confirmation {
+      font-size: 22px;
+      color: green;
+      margin-top: 20px;
+      text-align: center;
+    }
+    #spoolDetails {
+      margin-top: 20px;
+      background: #f0f2f5;
+      padding: 20px;
+      border-radius: 12px;
+    }
+    #spoolDetails p {
+      margin: 6px 0;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="screen scanner-screen active" id="scannerScreen">
+  <h2>📦 Scan QR Code</h2>
+  <input type="text" id="barcodeInput" placeholder="Scan QR Code here..." autofocus>
+</div>
+
+<div class="screen assembly-screen" id="assemblyScreen">
+  <h2>🛠 Assembly Instructions</h2>
+
+  <div id="spoolDetails"></div>
+  <iframe id="drawingViewer" src=""></iframe>
+
+  <h3>🔧 Required Parts</h3>
+  <ul id="partsList"></ul>
+
+  <button onclick="completeAssembly()">✅ Assembly Complete</button>
+  <div class="confirmation" id="confirmationMsg"></div>
+</div>
+
+<script>
+  const barcodeInput = document.getElementById("barcodeInput");
+  let inputTimer;
+
+  barcodeInput.addEventListener("input", () => {
+    clearTimeout(inputTimer);
+    inputTimer = setTimeout(async () => {
+    const qrText = barcodeInput.value.trim();
+    const parts = qrText.split('|').map(p => p.trim());
+
+    const spoolId = parts[0]?.replace("Pipe:", "").trim();
+    const soNo = parts[1]?.replace("SO:", "").trim();
+    const size = parts[2]?.replace("Ø", "").trim();
+    const lengthText = parts[3]?.replace("mm", "").trim();
+    const length = parseInt(lengthText);
+    const endPair = parts[4]?.split('/') || ["-", "-"];
+    const end1 = endPair[0]?.trim() || "-";
+    const end2 = endPair[1]?.trim() || "-";
+
+    if (!spoolId || !soNo || !size || isNaN(length)) {
+      alert("❌ Invalid QR format");
+      barcodeInput.value = "";
+      return;
+    }
+
+    // ✅ ส่งไปอัปเดตสถานะทันทีเป็น in-progress
+    try {
+      await fetch("http://localhost:8000/api/update_status_assembly", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          spool_id: spoolId,
+          status: "in-progress"
+        })
+      });
+      console.log(`🟢 Spool ${spoolId} marked as in-progress`);
+    } catch (err) {
+      console.warn(`⚠️ Failed to update spool ${spoolId}:`, err);
+    }
+
+    // ✅ ดึงข้อมูลเสริม
+    const extraInfo = await fetchSpoolInfoFromSO(spoolId);
+    const ventHole = (extraInfo?.ventHole || "").trim().toLowerCase() === "yes" ? "Yes" : "No";
+    const drawing = extraInfo?.file_dwg || "";
+
+    const partList = [
+      `Ø${size} Flange (LEFT: ${end1})`,
+      `Ø${size} Flange (RIGHT: ${end2})`,
+      "PTFE Liner"
+    ];
+    if (ventHole === "Yes") partList.push("Vent Hole");
+
+    const item = {
+      spoolId,
+      soNo,
+      spoolSize: `Ø${size}`,
+      spoolLength: length,
+      end1,
+      end2,
+      ventHole,
+      drawing,
+      weldType: "Butt Weld",
+      flangeType: { left: end1, right: end2 },
+      parts: partList
+    };
+
+    loadAssemblyScreen(item);
+    barcodeInput.value = "";
+  }, 400);
+  });
+
+  // ✅ ค้นหาจาก Spool ID (คอลัมน์ที่ 0)
+  async function fetchSpoolInfoFromSO(spoolId) {
+    try {
+      const res = await fetch("http://localhost:8000/api/pipes");
+      const data = await res.json();
+
+      const match = data.find(row =>
+        row[0]?.trim().toUpperCase() === spoolId.trim().toUpperCase()
+      );
+
+      if (!match) return null;
+
+      return {
+        ventHole: match[6] || "No",
+        file_dwg: match[7] || ""
+      };
+    } catch (err) {
+      console.error("Error fetching extra info:", err);
+      return null;
+    }
+  }
+
+  function loadAssemblyScreen(item) {
+    document.getElementById("scannerScreen").classList.remove("active");
+    document.getElementById("assemblyScreen").classList.add("active");
+
+    // ✅ แปลง Google Drive URL เป็น preview URL
+    let previewUrl = "";
+    if (item.drawing.includes("drive.google.com")) {
+      const match = item.drawing.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (match) {
+        const fileId = match[1];
+        previewUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+      }
+    } else {
+      previewUrl = item.drawing || "";
+    }
+
+    document.getElementById("drawingViewer").src = previewUrl;
+
+    const partsList = document.getElementById("partsList");
+    partsList.innerHTML = "";
+    (item.parts || []).forEach(part => {
+      const li = document.createElement("li");
+      li.textContent = part;
+      partsList.appendChild(li);
+    });
+
+    document.getElementById("spoolDetails").innerHTML = `
+      <h3>📄 Spool Information</h3>
+      <p><strong>Spool ID:</strong> ${item.spoolId}</p>
+      <p><strong>SO No:</strong> ${item.soNo || '-'}</p>
+      <p><strong>Spool Size:</strong> ${item.spoolSize}</p>
+      <p><strong>Length:</strong> ${item.spoolLength} mm</p>
+      <p><strong>Weld Type:</strong> ${item.weldType || "N/A"}</p>
+      <p><strong>Flange Type:</strong> LEFT = ${item.flangeType?.left || "?"}, RIGHT = ${item.flangeType?.right || "?"}</p>
+    `;
+
+    document.getElementById("confirmationMsg").innerText = "";
+  }
+
+  function completeAssembly() {
+    const spoolId = document.querySelector("#spoolDetails p strong")?.nextSibling?.textContent?.trim();
+    if (!spoolId) {
+      alert("ไม่พบ Spool ID สำหรับอัปเดตสถานะ");
+      return;
+    }
+
+    // 🔁 ส่งสถานะ "finished" ไปยัง Google Sheet
+    fetch("http://localhost:8000/api/update_status_assembly", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ spool_id: spoolId, status: "finished" })
+    })
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("confirmationMsg").innerText = "✅ Assembly completed!";
+      setTimeout(() => {
+        document.getElementById("assemblyScreen").classList.remove("active");
+        document.getElementById("scannerScreen").classList.add("active");
+        document.getElementById("drawingViewer").src = "";
+        document.getElementById("barcodeInput").focus();
+      }, 2000);
+    })
+    .catch(err => {
+      alert("❌ ไม่สามารถอัปเดตสถานะได้: " + err.message);
+    });
+  }
+</script>
+</body>
+</html>
