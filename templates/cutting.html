@@ -1,486 +1,511 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cutting Station – Optimized</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { display: flex; height: 100vh; font-family: 'Segoe UI', sans-serif; background: #f0f2f5; }
 
-{% block title %}Cutting Station – Optimized{% endblock %}
+    .sidebar { width: 280px; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
+    .sidebar-header { padding: 16px; border-bottom: 1px solid #ddd; }
+    .sidebar-header input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    .po-list { flex: 1; overflow-y: auto; padding: 8px; list-style: none; }
+    .po-item { padding: 10px; margin-bottom: 8px; border-radius: 4px; cursor: pointer; }
+    .po-item.active { background: #007bff; color: #fff; }
 
-{% block head %}
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { display: flex; height: 100vh; font-family: 'Segoe UI', sans-serif; background: #f0f2f5; }
+    .main { flex: 1; display: flex; flex-direction: column; }
+    .main-header { padding: 16px; background: #fff; border-bottom: 1px solid #ddd; }
+    .breadcrumbs { font-size: 14px; color: #666; margin-bottom: 4px; }
+    .main-header h2 { font-size: 20px; color: #333; }
 
-  .sidebar { width: 280px; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
-  .sidebar-header { padding: 16px; border-bottom: 1px solid #ddd; }
-  .sidebar-header input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-  .po-list { flex: 1; overflow-y: auto; padding: 8px; list-style: none; }
-  .po-item { padding: 10px; margin-bottom: 8px; border-radius: 4px; cursor: pointer; }
-  .po-item.active { background: #007bff; color: #fff; }
-
-  .main { flex: 1; display: flex; flex-direction: column; }
-  .main-header { padding: 16px; background: #fff; border-bottom: 1px solid #ddd; }
-  .breadcrumbs { font-size: 14px; color: #666; margin-bottom: 4px; }
-  .main-header h2 { font-size: 20px; color: #333; }
-
-  .pipe-container { flex: 1; padding: 16px; overflow-y: auto; }
-  .pipe-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 16px; }
-  .pipe-card-header { padding: 16px; background: #fafafa; font-weight: bold; }
-  .pipe-card-header button {
-    background: #3f51b5;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 4px 8px;
-    cursor: pointer;
-    margin-left: 20px;
-  }
-
-  .spool-list { list-style: none; padding: 0 16px 16px; }
-
-  .spool-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid #eee;
-    gap: 12px;
-  }
-
-  .spool-info-inline {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 25px;
-    flex: 1;
-  }
-
-  .spool-label {
-    width: 350px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .progress-bar {
-    width: 50%;
-    height: 8px;
-    background: #e0e0e0;
-    border-radius: 4px;
-    margin-left: 12px;
-    overflow: hidden;
-  }
-
-  .progress {
-    height: 100%;
-    background: #007bff;
-    width: 0%;
-    transition: width 0.3s;
-  }
-
-  .actions button {
-    margin-left: 4px;
-    padding: 4px 8px;
-    border: none;
-    border-radius: 4px;
-    color: #fff;
-    font-size: 12px;
-    cursor: pointer;
-  }
-
-  .actions .start { background: #28a745; }
-  .actions .finish { background: #dc3545; }
-  .actions .label { background: #ff9800; }
-  .actions .step { background: #3f51b5; }
-  .actions .viewer { background: #009688; }
-</style>
-{% endblock %}
-
-{% block content %}
-<div class="sidebar">
-  <div class="sidebar-header">
-    <input id="searchSo" placeholder="Search SO No..." oninput="filterSOs()" />
-  </div>
-  <ul id="poList" class="po-list"></ul>
-</div>
-
-<div class="main">
-  <div class="main-header">
-    <div class="breadcrumbs" id="breadcrumbs">Cutting Station</div>
-    <h2 id="mainTitle">Select SO No.</h2>
-  </div>
-  <div id="pipeContainer" class="pipe-container">
-    <p style="color:#888;text-align:center;">Select an SO No. to see details.</p>
-  </div>
-</div>
-{% endblock %}
-
-{% block script %}
-<script>
-  const API_URL = "/api/pipes";
-  let soGrouped = {}, allSO = [];
-
-  async function loadFromSheet() {
-    try {
-      const res = await fetch(API_URL);
-      const rows = await res.json();
-
-      const headers = rows[0];
-      const iSO = headers.indexOf("SO");
-      const iSize = headers.indexOf("Size");
-      const iLen = headers.indexOf("Length");
-      const iEnd1 = headers.indexOf("End1");
-      const iEnd2 = headers.indexOf("End2");
-
-      const data = rows.slice(1).map((r, i) => {
-        const raw = r[iLen] || r[2] || "0";
-        const cleaned = raw.toString().trim().replace(/[^\d.]/g, "");
-        const parsed = parseFloat(cleaned);
-
-        return {
-          source: r[iSO] || r[0],
-          size: (r[iSize] || r[1]).toString().trim(),
-          length: isNaN(parsed) ? 0 : parsed,
-          end1: r[iEnd1]?.trim() || "-",
-          end2: r[iEnd2]?.trim() || "-",
-          progress: 0,
-          status: r[11]?.trim().toLowerCase() || '',
-          spool_id: `S${(i + 1).toString().padStart(3, '0')}`
-        };
-      });
-
-      soGrouped = {};
-      data.forEach(d => {
-        if (!soGrouped[d.source]) soGrouped[d.source] = [];
-        soGrouped[d.source].push(d);
-      });
-
-      allSO = Object.keys(soGrouped);
-      renderSOs();
-    } catch (e) {
-      console.error("❌ โหลดข้อมูลล้มเหลว:", e);
-      alert("ไม่สามารถโหลดข้อมูลจาก Google Sheet ได้");
+    .pipe-container { flex: 1; padding: 16px; overflow-y: auto; }
+    .pipe-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 16px; }
+    .pipe-card-header { padding: 16px; background: #fafafa; font-weight: bold; }
+    .pipe-card-header button {
+      background: #3f51b5;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+      margin-left: 20px;
     }
-  }
 
-  function renderSOs() {
-    const list = document.getElementById('poList');
-    list.innerHTML = '';
-    allSO.forEach(so => {
-      const li = document.createElement('li');
-      li.className = 'po-item';
-      li.textContent = so;
-      li.onclick = () => selectSO(so, li);
-      list.appendChild(li);
-    });
-  }
+    .spool-list { list-style: none; padding: 0 16px 16px; }
 
-  function filterSOs() {
-    const q = document.getElementById('searchSo').value.toLowerCase();
-    const list = document.getElementById('poList');
-    list.innerHTML = '';
-    allSO
-      .filter(so => so.toLowerCase().includes(q))
-      .forEach(so => {
+    .spool-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+      gap: 12px;
+    }
+
+    .spool-info-inline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 25px;
+      flex: 1;
+    }
+
+    .spool-label {
+      width: 350px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .progress-bar {
+      width: 50%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      margin-left: 12px;
+      overflow: hidden;
+    }
+
+    .progress {
+      height: 100%;
+      background: #007bff;
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    .actions button {
+      margin-left: 4px;
+      padding: 4px 8px;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .actions .start { background: #28a745; }
+    .actions .finish { background: #dc3545; }
+    .actions .label { background: #ff9800; }
+    .actions .step { background: #3f51b5; }
+    .actions .viewer { background: #009688; }
+  </style>
+</head>
+<body>
+  
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <input id="searchSo" placeholder="Search SO No..." oninput="filterSOs()" />
+    </div>
+    <ul id="poList" class="po-list"></ul>
+  </div>
+  <div class="main">
+    <div class="main-header">
+      <div class="breadcrumbs" id="breadcrumbs">Cutting Station</div>
+      <h2 id="mainTitle">Select SO No.</h2>
+    </div>
+    <div id="pipeContainer" class="pipe-container">
+      <p style="color:#888;text-align:center;">Select an SO No. to see details.</p>
+    </div>
+  </div>
+  <script>
+    const API_URL = "http://localhost:8000/api/pipes";
+    let soGrouped = {}, allSO = [];
+
+    async function loadFromSheet() {
+      try {
+        const res = await fetch(API_URL);
+        const rows = await res.json();
+
+        const headers = rows[0];
+
+        const iSO = headers.indexOf("SO");
+        const iSize = headers.indexOf("Size");
+        const iLen = headers.indexOf("Length");
+        const iEnd1 = headers.indexOf("End1");
+        const iEnd2 = headers.indexOf("End2");
+
+        const data = rows.slice(1).map((r, i) => {
+          const raw = r[iLen] || r[2] || "0";
+          const cleaned = raw.toString().trim().replace(/[^\d.]/g, "");
+          const parsed = parseFloat(cleaned);
+
+          return {
+            source: r[iSO] || r[0],
+            size: (r[iSize] || r[1]).toString().trim(),
+            length: isNaN(parsed) ? 0 : parsed,
+            end1: r[iEnd1]?.trim() || "-",
+            end2: r[iEnd2]?.trim() || "-", // ✅ ต้องมี!
+            progress: 0,
+            status: r[11]?.trim().toLowerCase() || '',
+            spool_id: `S${(i + 1).toString().padStart(3, '0')}`
+          };
+        });
+
+          // ต่อด้วยจัดกลุ่ม SO
+          soGrouped = {};
+          data.forEach(d => {
+            if (!soGrouped[d.source]) soGrouped[d.source] = [];
+            soGrouped[d.source].push(d);
+          });
+
+          allSO = Object.keys(soGrouped);
+          renderSOs();
+        } catch (e) {
+          console.error("❌ โหลดข้อมูลล้มเหลว:", e);
+          alert("ไม่สามารถโหลดข้อมูลจาก Google Sheet ได้");
+        }
+      }
+
+
+    function renderSOs() {
+      const list = document.getElementById('poList');
+      list.innerHTML = '';
+      allSO.forEach(so => {
         const li = document.createElement('li');
         li.className = 'po-item';
         li.textContent = so;
         li.onclick = () => selectSO(so, li);
         list.appendChild(li);
       });
-  }
+    }
 
-  function selectSO(so, el) {
-    document.querySelectorAll('.po-item').forEach(i => i.classList.remove('active'));
-    el.classList.add('active');
-    document.getElementById('mainTitle').textContent = `SO No. ${so}`;
-    document.getElementById('breadcrumbs').textContent = `Order / SO No. ${so}`;
-    renderPipes(soGrouped[so], so);
-  }
+    function filterSOs() {
+      const q = document.getElementById('searchSo').value.toLowerCase();
+      const list = document.getElementById('poList');
+      list.innerHTML = '';
+      allSO.filter(so => so.toLowerCase().includes(q)).forEach(so => {
+        const li = document.createElement('li');
+        li.className = 'po-item';
+        li.textContent = so;
+        li.onclick = () => selectSO(so, li);
+        list.appendChild(li);
+      });
+    }
 
-  function linearOptimize(spools, rawLength = 6000) {
-    const sorted = [...spools].sort((a, b) => b.length - a.length);
-    const bins = [];
-    sorted.forEach(sp => {
-      let placed = false;
-      for (const bin of bins) {
-        const used = bin.reduce((sum, x) => sum + x.length, 0);
-        if (used + sp.length <= rawLength) {
-          bin.push(sp);
-          placed = true;
-          break;
+    function selectSO(so, el) {
+      document.querySelectorAll('.po-item').forEach(i => i.classList.remove('active'));
+      el.classList.add('active');
+      document.getElementById('mainTitle').textContent = `SO No. ${so}`;
+      document.getElementById('breadcrumbs').textContent = `Order / SO No. ${so}`;
+      renderPipes(soGrouped[so], so);
+    }
+
+    function linearOptimize(spools, rawLength = 6000) {
+      const sorted = [...spools].sort((a, b) => b.length - a.length);
+      const bins = [];
+
+      sorted.forEach(sp => {
+        let placed = false;
+        for (const bin of bins) {
+          const used = bin.reduce((sum, x) => sum + x.length, 0);
+          if (used + sp.length <= rawLength) {
+            bin.push(sp);
+            placed = true;
+            break;
+          }
         }
-      }
-      if (!placed) bins.push([sp]);
-    });
-    return bins;
-  }
+        if (!placed) bins.push([sp]);
+      });
 
-  function generateLabel(spool_id, so_no, size, length) {
-    fetch('/api/generate_label', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spool_id, so_no, size, length })
-    })
-    .then(response => response.blob())
-    .then(blob => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${spool_id}_label.pdf`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    })
-    .catch(err => alert("Failed to generate label: " + err));
-  }
-
-  function getEndValue(size, endType) {
-    const map = {
-      "1": 56,
-      "1/2": 48,
-      "1-1/2": 62,
-      "1-1/4": 58,
-      "2": 64,
-      "3/4": 53,
-      "2-1/2": 70,
-      "3": 70,
-      "3-1/2": 72,
-    };
-    if (endType === "F-Default") {
-      return map[size] ?? "";
-    } else if (endType === "L-Default") {
-      return 0;
+      return bins;
     }
-    return "";
-  }
 
-  function calculateUsableLength(spoolId) {
-    const end1Input = document.querySelector(`#${spoolId}-end1`);
-    const end2Input = document.querySelector(`#${spoolId}-end2`);
-    const display = document.querySelector(`#${spoolId}-usable`);
-    const end1 = parseFloat(end1Input?.value) || 0;
-    const end2 = parseFloat(end2Input?.value) || 0;
-    const length = parseFloat(end1Input?.dataset.length) || 0;
-    const usable = length - (end1 + end2);
-    display.textContent = `ใช้งานได้จริง: ${usable} mm`;
-  }
-
-  function generateStep(spool_id, size, originalLength) {
-    const end1 = parseFloat(document.getElementById(`${spool_id}-end1`)?.value) || 0;
-    const end2 = parseFloat(document.getElementById(`${spool_id}-end2`)?.value) || 0;
-    const usableLength = originalLength - (end1 + end2);
-    if (usableLength <= 0) {
-      alert("❌ ความยาวใช้งานได้ต้องมากกว่า 0 mm");
-      return;
-    }
-    fetch('/api/generate_step', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        spool_id,
-        size,
-        length: usableLength
+    function generateLabel(spool_id, so_no, size, length) {
+      fetch('/api/generate_label', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spool_id, so_no, size, length })
       })
-    })
-    .then(response => response.blob())
-    .then(blob => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${spool_id}_model.step`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    })
-    .catch(err => alert("Failed to generate STEP: " + err));
-  }
+      .then(response => response.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${spool_id}_label.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch(err => alert("Failed to generate label: " + err));
+    }
 
-  function generateStepsZip(group) {
-    const payload = group.map(sp => {
-      const end1 = parseFloat(document.getElementById(`${sp.spool_id}-end1`)?.value) || 0;
-      const end2 = parseFloat(document.getElementById(`${sp.spool_id}-end2`)?.value) || 0;
-      const usableLength = sp.length - (end1 + end2);
-      return {
-        spool_id: sp.spool_id,
-        size: sp.size,
-        length: usableLength
+
+    function getEndValue(size, endType) {
+      const map = {
+        "1": 56,
+        "1/2": 48,
+        "1-1/2": 62,
+        "1-1/4": 58,
+        "2": 64,
+        "3/4": 53,
+        "2-1/2": 70,
+        "3": 70,
+        "3-1/2": 72,
       };
-    });
 
-    fetch('/api/generate_steps_zip', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-    .then(response => response.blob())
-    .then(blob => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `pipes_group_${Date.now()}.zip`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    })
-    .catch(err => alert("Failed to generate ZIP: " + err));
-  }
-
-  function parseSize(s) {
-    if (!s) return 0;
-    const cleaned = s.toString().replace(/[^\d./-]/g, '');
-    if (!cleaned.includes('/')) return parseFloat(cleaned);
-    const parts = cleaned.split(/[- ]/);
-    let total = 0;
-    parts.forEach(p => {
-      if (p.includes('/')) {
-        const [num, den] = p.split('/').map(Number);
-        total += num / den;
-      } else {
-        total += parseFloat(p);
+      if (endType === "F-Default") {
+        return map[size] ?? "";
+      } else if (endType === "L-Default") {
+        return 0;
       }
-    });
-    return total;
-  }
+      return ""; // สำหรับกรณีอื่น
+    }
 
-  function renderPipes(spools, so) {
-    const container = document.getElementById('pipeContainer');
-    container.innerHTML = '';
+    function calculateUsableLength(spoolId) {
+      const end1Input = document.querySelector(`#${spoolId}-end1`);
+      const end2Input = document.querySelector(`#${spoolId}-end2`);
+      const display = document.querySelector(`#${spoolId}-usable`);
 
-    const sizeGroups = {};
-    spools.forEach(sp => {
-      if (!sizeGroups[sp.size]) sizeGroups[sp.size] = [];
-      sizeGroups[sp.size].push(sp);
-    });
+      const end1 = parseFloat(end1Input?.value) || 0;
+      const end2 = parseFloat(end2Input?.value) || 0;
+      const length = parseFloat(end1Input?.dataset.length) || 0;
 
-    const spoolSummary = Object.entries(sizeGroups)
-      .sort(([a], [b]) => parseSize(a) - parseSize(b))
-      .map(([size, list]) => `Ø${size} (${list.length} pcs)`)
-      .join(' | ');
+      const usable = length - (end1 + end2);
+      display.textContent = `ใช้งานได้จริง: ${usable} mm`;
+    }
 
-    const rawCountMap = {};
-    Object.entries(sizeGroups).forEach(([size, spoolsOfSize]) => {
-      const groups = linearOptimize(spoolsOfSize, 6000);
-      rawCountMap[size] = groups.length;
-    });
+    function generateStep(spool_id, size, originalLength) {
+      const end1 = parseFloat(document.getElementById(`${spool_id}-end1`)?.value) || 0;
+      const end2 = parseFloat(document.getElementById(`${spool_id}-end2`)?.value) || 0;
+      const usableLength = originalLength - (end1 + end2);
 
-    const rawSummary = Object.entries(rawCountMap)
-      .sort(([a], [b]) => parseSize(a) - parseSize(b))
-      .map(([size, count]) => `Ø${size} ใช้ไป ${count} ท่อดิบ`)
-      .join(' | ');
+      if (usableLength <= 0) {
+        alert("❌ ความยาวใช้งานได้ต้องมากกว่า 0 mm");
+        return;
+      }
 
-    const titleElem = document.getElementById('mainTitle');
-    titleElem.textContent = '';
+      fetch('/api/generate_step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          spool_id,
+          size,
+          length: usableLength  // ✅ ส่งไปตรงๆ เลย ไม่ต้องให้ backend คำนวณ
+        })
+      })
+      .then(response => response.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${spool_id}_model.step`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch(err => alert("Failed to generate STEP: " + err));
+    }
 
-    const existingInfo = titleElem.parentElement.querySelector('.pipe-summary-info');
-    if (existingInfo) existingInfo.remove();
+    function generateStepsZip(group) {
+      const payload = group.map(sp => {
+        const end1 = parseFloat(document.getElementById(`${sp.spool_id}-end1`)?.value) || 0;
+        const end2 = parseFloat(document.getElementById(`${sp.spool_id}-end2`)?.value) || 0;
+        const usableLength = sp.length - (end1 + end2);
 
-    const flexContainer = document.createElement('div');
-    flexContainer.style.display = 'flex';
-    flexContainer.style.alignItems = 'flex-start';
-    flexContainer.style.justifyContent = 'space-between';
-    flexContainer.style.flexWrap = 'wrap';
-    flexContainer.style.gap = '16px';
+        return {
+          spool_id: sp.spool_id,
+          size: sp.size,
+          length: usableLength  // ✅ ส่ง usableLength ไป backend
+        };
+      });
 
-    const titleText = document.createElement('div');
-    titleText.textContent = `SO No. ${so}`;
-    titleText.style.fontWeight = 'bold';
-    titleText.style.fontSize = '20px';
-    titleText.style.color = '#333';
+      fetch('/api/generate_steps_zip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(response => response.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `pipes_group_${Date.now()}.zip`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch(err => alert("Failed to generate ZIP: " + err));
+    }
 
-    const infoDiv = document.createElement('div');
-    infoDiv.className = 'pipe-summary-info';
-    infoDiv.style.fontSize = '14px';
-    infoDiv.style.color = '#444';
-    infoDiv.style.display = 'grid';
-    infoDiv.style.gridTemplateColumns = 'max-content auto';
-    infoDiv.style.gap = '4px 12px';
-    infoDiv.innerHTML = `
-      <div><strong>Pipe Sizes Used:</strong></div><div>${spoolSummary}</div>
-      <div><strong>Raw Pipes:</strong></div><div>${rawSummary}</div>
-    `;
+    function parseSize(s) {
+      // แปลงขนาด เช่น "1-1/2" หรือ "Ø100" หรือ "2" เป็นตัวเลขเพื่อเปรียบเทียบ
+      if (!s) return 0;
+      const cleaned = s.toString().replace(/[^\d./-]/g, '');
 
-    flexContainer.appendChild(titleText);
-    flexContainer.appendChild(infoDiv);
-    titleElem.appendChild(flexContainer);
+      // ถ้าเป็นทศนิยมตรง เช่น "1.5"
+      if (!cleaned.includes('/')) return parseFloat(cleaned);
 
-    Object.entries(sizeGroups)
-      .sort(([a], [b]) => parseSize(a) - parseSize(b))
-      .forEach(([size, spoolsOfSize]) => {
-        const rawGroups = linearOptimize(spoolsOfSize, 6000);
+      // กรณี "1-1/2" หรือ "1 1/2"
+      const parts = cleaned.split(/[- ]/);
+      let total = 0;
+      parts.forEach(p => {
+        if (p.includes('/')) {
+          const [num, den] = p.split('/').map(Number);
+          total += num / den;
+        } else {
+          total += parseFloat(p);
+        }
+      });
+      return total;
+    }
 
-        rawGroups.forEach((group, idx) => {
-          const card = document.createElement('div');
-          card.className = 'pipe-card';
-          const totalLength = group.reduce((sum, sp) => sum + sp.length, 0);
-          const header = `
-            PIPE-${so}-${size}-${idx + 1} (6000mm | ใช้ไป ${totalLength}mm)
-            <button onclick="generateStepsZip(${JSON.stringify(group).replace(/"/g, '&quot;')})">ZIP</button>
-          `;
+    function renderPipes(spools, so) {
+      console.log("SO =", so);
 
-          card.innerHTML = `
-            <div class="pipe-card-header">${header}</div>
-            <ul class="spool-list">
-              ${group.map(sp => `
-                <li class="spool-item">
-                  <div class="spool-info-inline">
-                    <span class="spool-label">
-                      ${sp.spool_id} (Ø${sp.size}, ${sp.length}mm |
-                        ${["F-Default", "L-Default"].includes(sp.end1)
-                          ? `<input type="number" id="${sp.spool_id}-end1" data-length="${sp.length}" value="${getEndValue(sp.size, sp.end1)}"
-                              style="width:50px;" onchange="calculateUsableLength('${sp.spool_id}')" />`
-                          : sp.end1}
-                        →
-                        ${["F-Default", "L-Default"].includes(sp.end2)
-                          ? `<input type="number" id="${sp.spool_id}-end2" data-length="${sp.length}" value="${getEndValue(sp.size, sp.end2)}"
-                              style="width:50px;" onchange="calculateUsableLength('${sp.spool_id}')" />`
-                          : sp.end2}
-                      )<br>
-                      <small id="${sp.spool_id}-usable">
-                        ใช้งานได้จริง: ${sp.length - (getEndValue(sp.size, sp.end1) + getEndValue(sp.size, sp.end2))} mm
-                      </small>
-                    </span>
-                    <div class="progress-bar">
-                      <div class="progress" id="prog-${sp.spool_id}"
-                        style="width:${sp.status === 'finished' ? 100 : sp.status === 'in-progress' ? 50 : 0}%">
+      const container = document.getElementById('pipeContainer');
+      container.innerHTML = '';
+
+      // กลุ่มตาม size
+      const sizeGroups = {};
+      spools.forEach(sp => {
+        if (!sizeGroups[sp.size]) sizeGroups[sp.size] = [];
+        sizeGroups[sp.size].push(sp);
+      });
+
+      // สร้างข้อมูล summary สำหรับ pipe sizes
+      const spoolSummary = Object.entries(sizeGroups)
+        .sort(([a], [b]) => parseSize(a) - parseSize(b))
+        .map(([size, list]) => `Ø${size} (${list.length} pcs)`)
+        .join(' | ');
+
+      // สร้างข้อมูล raw pipes (ท่อดิบ) ที่ใช้
+      const rawCountMap = {};
+      Object.entries(sizeGroups).forEach(([size, spoolsOfSize]) => {
+        const groups = linearOptimize(spoolsOfSize, 6000);
+        rawCountMap[size] = groups.length;
+      });
+
+      const rawSummary = Object.entries(rawCountMap)
+        .sort(([a], [b]) => parseSize(a) - parseSize(b))
+        .map(([size, count]) => `Ø${size} ใช้ไป ${count} ท่อดิบ`)
+        .join(' | ');
+
+      // อ้างถึงหัวข้อ SO No.
+      const titleElem = document.getElementById('mainTitle');
+
+      // เคลียร์เนื้อหาเก่า
+      titleElem.textContent = '';
+
+      // ลบข้อมูลสรุปเดิม ถ้ามี
+      const existingInfo = titleElem.parentElement.querySelector('.pipe-summary-info');
+      if (existingInfo) existingInfo.remove();
+
+      // สร้าง Flex container
+      const flexContainer = document.createElement('div');
+      flexContainer.style.display = 'flex';
+      flexContainer.style.alignItems = 'flex-start';
+      flexContainer.style.justifyContent = 'space-between';
+      flexContainer.style.flexWrap = 'wrap';
+      flexContainer.style.gap = '16px';
+
+      // ฝั่งซ้าย: SO No.
+      const titleText = document.createElement('div');
+      titleText.textContent = `SO No. ${so}`;
+      titleText.style.fontWeight = 'bold';
+      titleText.style.fontSize = '20px';
+      titleText.style.color = '#333';
+
+      // ฝั่งขวา: summary
+      const infoDiv = document.createElement('div');
+      infoDiv.className = 'pipe-summary-info';
+      infoDiv.style.fontSize = '14px';
+      infoDiv.style.color = '#444';
+      infoDiv.style.display = 'grid';
+      infoDiv.style.gridTemplateColumns = 'max-content auto';
+      infoDiv.style.gap = '4px 12px'; // ระยะระหว่าง label กับข้อความ
+      infoDiv.innerHTML = `
+        <div><strong>Pipe Sizes Used:</strong></div><div>${spoolSummary}</div>
+        <div><strong>Raw Pipes:</strong></div><div>${rawSummary}</div>
+      `;
+
+      // รวมเข้ากับ flex container
+      flexContainer.appendChild(titleText);
+      flexContainer.appendChild(infoDiv);
+      titleElem.appendChild(flexContainer);
+
+      // สร้าง card สำหรับแต่ละขนาดท่อ
+      Object.entries(sizeGroups)
+        .sort(([a], [b]) => parseSize(a) - parseSize(b))
+        .forEach(([size, spoolsOfSize]) => {
+          const rawGroups = linearOptimize(spoolsOfSize, 6000);
+
+          rawGroups.forEach((group, idx) => {
+            const card = document.createElement('div');
+            card.className = 'pipe-card';
+            const totalLength = group.reduce((sum, sp) => sum + sp.length, 0);
+            const header = `
+              PIPE-${so}-${size}-${idx + 1} (6000mm | ใช้ไป ${totalLength}mm)
+              <button onclick="generateStepsZip(${JSON.stringify(group).replace(/"/g, '&quot;')})" style="margin-left: 12px; padding: 2px 6px; font-size: 12px;">ZIP</button>
+            `;
+
+            card.innerHTML = `
+              <div class="pipe-card-header">${header}</div>
+              <ul class="spool-list">
+                ${group.map(sp => `
+                  <li class="spool-item">
+                    <div class="spool-info-inline">
+                      <span class="spool-label">
+                        ${sp.spool_id} (Ø${sp.size}, ${sp.length}mm |
+                          ${["F-Default", "L-Default"].includes(sp.end1)
+                            ? `<input type="number" id="${sp.spool_id}-end1" data-length="${sp.length}" value="${getEndValue(sp.size, sp.end1)}"
+                                style="width:50px;" onchange="calculateUsableLength('${sp.spool_id}')" />`
+                            : sp.end1}
+                          →
+                          ${["F-Default", "L-Default"].includes(sp.end2)
+                            ? `<input type="number" id="${sp.spool_id}-end2" data-length="${sp.length}" value="${getEndValue(sp.size, sp.end2)}"
+                                style="width:50px;" onchange="calculateUsableLength('${sp.spool_id}')" />`
+                            : sp.end2}
+                        )<br>
+                        <small id="${sp.spool_id}-usable">ใช้งานได้จริง: ${sp.length - (getEndValue(sp.size, sp.end1) + getEndValue(sp.size, sp.end2))} mm</small>
+                      </span>
+                      <div class="progress-bar">
+                        <div class="progress" id="prog-${sp.spool_id}" style="width:${sp.status === 'finished' ? 100 : sp.status === 'in-progress' ? 50 : 0}%"></div>
                       </div>
                     </div>
-                  </div>
-                  <div class="actions">
-                    <button class="start" onclick="update('${sp.spool_id}', 50)" ${sp.status === 'finished' ? 'disabled' : ''}>Start</button>
-                    <button class="finish" onclick="update('${sp.spool_id}', 100)" ${sp.status === 'finished' ? 'disabled' : ''}>Finish</button>
-                    <button class="label" onclick="generateLabel('${sp.spool_id}', '${so}', '${sp.size}', '${sp.length}')">Label</button>
-                    <button class="step" onclick="generateStep('${sp.spool_id}', '${sp.size}', '${sp.length}')">STEP</button>
-                  </div>
-                </li>
-              `).join('')}
-            </ul>
-          `;
-          document.getElementById('pipeContainer').appendChild(card);
+                    <div class="actions">
+                      <button class="start" onclick="update('${sp.spool_id}', 50)" ${sp.status === 'finished' ? 'disabled' : ''}>Start</button>
+                      <button class="finish" onclick="update('${sp.spool_id}', 100)" ${sp.status === 'finished' ? 'disabled' : ''}>Finish</button>
+                      <button class="label" onclick="generateLabel('${sp.spool_id}', '${so}', '${sp.size}', '${sp.length}')">Label</button>
+                      <button class="step" onclick="generateStep('${sp.spool_id}', '${sp.size}', '${sp.length}')">STEP</button>
+                    </div>
+                  </li>`).join('')}
+              </ul>
+            `;
+            container.appendChild(card);
+          });
         });
-      });
-  }
-
-  function update(id, pct) {
-    document.getElementById(`prog-${id}`).style.width = pct + '%';
-    const status = pct === 100 ? 'finished' : 'in-progress';
-
-    for (const so in soGrouped) {
-      for (const sp of soGrouped[so]) {
-        if (sp.spool_id === id) {
-          sp.status = status;
-          break;
-        }
-      }
     }
 
-    fetch('/api/update_status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spool_id: id, status })
-    })
-    .then(res => res.json())
-    .then(data => {
-      console.log(`✅ Updated ${id} to ${status}`);
-    })
-    .catch(err => {
-      alert(`❌ Failed to update ${id}: ${err.message}`);
-    });
-  }
+    function update(id, pct) {
+      document.getElementById(`prog-${id}`).style.width = pct + '%';
 
-  window.onload = loadFromSheet;
-</script>
-{% endblock %}
+      const status = pct === 100 ? 'finished' : 'in-progress';
+
+      // ✅ อัปเดตในข้อมูล (soGrouped)
+      for (const so in soGrouped) {
+        for (const sp of soGrouped[so]) {
+          if (sp.spool_id === id) {
+            sp.status = status;
+            break;
+          }
+        }
+      }
+
+      // ✅ ส่งไปยัง backend
+      fetch('/api/update_status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spool_id: id, status })
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log(`✅ Updated ${id} to ${status}`);
+      })
+      .catch(err => {
+        alert(`❌ Failed to update ${id}: ${err.message}`);
+      });
+    }
+
+    window.onload = loadFromSheet;
+  </script>
+  
+</body>
+</html>

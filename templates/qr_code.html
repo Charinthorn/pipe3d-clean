@@ -1,79 +1,79 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Workstation Assembly</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #f4f7fb;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .screen {
+      max-width: 1000px;
+      margin: auto;
+      padding: 40px;
+      display: none;
+    }
+    .active {
+      display: block;
+    }
+    .scanner-screen input {
+      font-size: 28px;
+      padding: 16px;
+      width: 100%;
+      border: 2px solid #ccc;
+      border-radius: 12px;
+    }
+    iframe {
+      width: 100%;
+      height: 400px;
+      border: none;
+      margin-top: 20px;
+      border-radius: 12px;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      font-size: 18px;
+      padding: 12px;
+      background-color: #e9eef5;
+      margin: 8px 0;
+      border-radius: 8px;
+    }
+    button {
+      margin-top: 30px;
+      padding: 16px;
+      font-size: 20px;
+      width: 100%;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+    .confirmation {
+      font-size: 22px;
+      color: green;
+      margin-top: 20px;
+      text-align: center;
+    }
+    #spoolDetails {
+      margin-top: 20px;
+      background: #f0f2f5;
+      padding: 20px;
+      border-radius: 12px;
+    }
+    #spoolDetails p {
+      margin: 6px 0;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
 
-{% block title %}Workstation Assembly{% endblock %}
-
-{% block head %}
-<style>
-  body {
-    margin: 0;
-    background-color: #f4f7fb;
-    font-family: 'Segoe UI', sans-serif;
-  }
-  .screen {
-    max-width: 1000px;
-    margin: auto;
-    padding: 40px;
-    display: none;
-  }
-  .active {
-    display: block;
-  }
-  .scanner-screen input {
-    font-size: 28px;
-    padding: 16px;
-    width: 100%;
-    border: 2px solid #ccc;
-    border-radius: 12px;
-  }
-  iframe {
-    width: 100%;
-    height: 400px;
-    border: none;
-    margin-top: 20px;
-    border-radius: 12px;
-  }
-  ul {
-    list-style: none;
-    padding: 0;
-  }
-  li {
-    font-size: 18px;
-    padding: 12px;
-    background-color: #e9eef5;
-    margin: 8px 0;
-    border-radius: 8px;
-  }
-  button {
-    margin-top: 30px;
-    padding: 16px;
-    font-size: 20px;
-    width: 100%;
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-  }
-  .confirmation {
-    font-size: 22px;
-    color: green;
-    margin-top: 20px;
-    text-align: center;
-  }
-  #spoolDetails {
-    margin-top: 20px;
-    background: #f0f2f5;
-    padding: 20px;
-    border-radius: 12px;
-  }
-  #spoolDetails p {
-    margin: 6px 0;
-    font-size: 16px;
-  }
-</style>
-{% endblock %}
-
-{% block content %}
 <div class="screen scanner-screen active" id="scannerScreen">
   <h2>📦 Scan QR Code</h2>
   <input type="text" id="barcodeInput" placeholder="Scan QR Code here..." autofocus>
@@ -91,9 +91,7 @@
   <button onclick="completeAssembly()">✅ Assembly Complete</button>
   <div class="confirmation" id="confirmationMsg"></div>
 </div>
-{% endblock %}
 
-{% block script %}
 <script>
   const barcodeInput = document.getElementById("barcodeInput");
   let inputTimer;
@@ -101,68 +99,68 @@
   barcodeInput.addEventListener("input", () => {
     clearTimeout(inputTimer);
     inputTimer = setTimeout(async () => {
-      const qrText = barcodeInput.value.trim();
-      const parts = qrText.split('|').map(p => p.trim());
+    const qrText = barcodeInput.value.trim();
+    const parts = qrText.split('|').map(p => p.trim());
 
-      const spoolId = parts[0]?.replace("Pipe:", "").trim();
-      const soNo = parts[1]?.replace("SO:", "").trim();
-      const size = parts[2]?.replace("Ø", "").trim();
-      const lengthText = parts[3]?.replace("mm", "").trim();
-      const length = parseInt(lengthText);
-      const endPair = parts[4]?.split('/') || ["-", "-"];
-      const end1 = endPair[0]?.trim() || "-";
-      const end2 = endPair[1]?.trim() || "-";
+    const spoolId = parts[0]?.replace("Pipe:", "").trim();
+    const soNo = parts[1]?.replace("SO:", "").trim();
+    const size = parts[2]?.replace("Ø", "").trim();
+    const lengthText = parts[3]?.replace("mm", "").trim();
+    const length = parseInt(lengthText);
+    const endPair = parts[4]?.split('/') || ["-", "-"];
+    const end1 = endPair[0]?.trim() || "-";
+    const end2 = endPair[1]?.trim() || "-";
 
-      if (!spoolId || !soNo || !size || isNaN(length)) {
-        alert("❌ Invalid QR format");
-        barcodeInput.value = "";
-        return;
-      }
-
-      // ✅ ส่งไปอัปเดตสถานะทันทีเป็น in-progress
-      try {
-        await fetch("/api/update_status_assembly", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            spool_id: spoolId,
-            status: "in-progress"
-          })
-        });
-        console.log(`🟢 Spool ${spoolId} marked as in-progress`);
-      } catch (err) {
-        console.warn(`⚠️ Failed to update spool ${spoolId}:`, err);
-      }
-
-      // ✅ ดึงข้อมูลเสริม
-      const extraInfo = await fetchSpoolInfoFromSO(spoolId);
-      const ventHole = (extraInfo?.ventHole || "").trim().toLowerCase() === "yes" ? "Yes" : "No";
-      const drawing = extraInfo?.file_dwg || "";
-
-      const partList = [
-        `Ø${size} Flange (LEFT: ${end1})`,
-        `Ø${size} Flange (RIGHT: ${end2})`,
-        "PTFE Liner"
-      ];
-      if (ventHole === "Yes") partList.push("Vent Hole");
-
-      const item = {
-        spoolId,
-        soNo,
-        spoolSize: `Ø${size}`,
-        spoolLength: length,
-        end1,
-        end2,
-        ventHole,
-        drawing,
-        weldType: "Butt Weld",
-        flangeType: { left: end1, right: end2 },
-        parts: partList
-      };
-
-      loadAssemblyScreen(item);
+    if (!spoolId || !soNo || !size || isNaN(length)) {
+      alert("❌ Invalid QR format");
       barcodeInput.value = "";
-    }, 400);
+      return;
+    }
+
+    // ✅ ส่งไปอัปเดตสถานะทันทีเป็น in-progress
+    try {
+      await fetch("/api/update_status_assembly", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          spool_id: spoolId,
+          status: "in-progress"
+        })
+      });
+      console.log(`🟢 Spool ${spoolId} marked as in-progress`);
+    } catch (err) {
+      console.warn(`⚠️ Failed to update spool ${spoolId}:`, err);
+    }
+
+    // ✅ ดึงข้อมูลเสริม
+    const extraInfo = await fetchSpoolInfoFromSO(spoolId);
+    const ventHole = (extraInfo?.ventHole || "").trim().toLowerCase() === "yes" ? "Yes" : "No";
+    const drawing = extraInfo?.file_dwg || "";
+
+    const partList = [
+      `Ø${size} Flange (LEFT: ${end1})`,
+      `Ø${size} Flange (RIGHT: ${end2})`,
+      "PTFE Liner"
+    ];
+    if (ventHole === "Yes") partList.push("Vent Hole");
+
+    const item = {
+      spoolId,
+      soNo,
+      spoolSize: `Ø${size}`,
+      spoolLength: length,
+      end1,
+      end2,
+      ventHole,
+      drawing,
+      weldType: "Butt Weld",
+      flangeType: { left: end1, right: end2 },
+      parts: partList
+    };
+
+    loadAssemblyScreen(item);
+    barcodeInput.value = "";
+  }, 400);
   });
 
   // ✅ ค้นหาจาก Spool ID (คอลัมน์ที่ 0)
@@ -254,4 +252,6 @@
     });
   }
 </script>
-{% endblock %}
+
+</body>
+</html>

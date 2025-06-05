@@ -3,9 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
 import qrcode
 from fpdf import FPDF
 import os
@@ -661,15 +660,33 @@ def get_pipe_statuses():
 
     return cleaned
 
-# ✅ หน้าแรก (root) redirect ไปยัง Dashboard หรือหน้าใดก็ได้
 @app.get("/", response_class=HTMLResponse)
-async def root():
-    return RedirectResponse(url="/Dashboard")
+async def read_home(request: Request):
+    return templates.TemplateResponse("Dashboard.html", {"request": request})
 
-# ✅ เปิดทุกหน้าแบบอัตโนมัติ
-@app.get("/{page_name}", response_class=HTMLResponse)
-async def render_page(request: Request, page_name: str):
-    try:
-        return templates.TemplateResponse(f"{page_name}.html", {"request": request})
-    except:
-        raise HTTPException(status_code=404, detail="Page not found")
+# ตัวอย่าง route เฉพาะหน้าสำหรับ /qr_code
+@app.get("/assembly", response_class=HTMLResponse)
+async def read_qr(request: Request):
+    return templates.TemplateResponse("qr_code.html", {"request": request})
+
+@app.get("/blasting", response_class=HTMLResponse)
+async def read_qr(request: Request):
+    return templates.TemplateResponse("Cart_qrcode.html", {"request": request})
+
+@app.get("/coating", response_class=HTMLResponse)
+async def read_qr(request: Request):
+    return templates.TemplateResponse("Coating.html", {"request": request})
+
+@app.get("/lining", response_class=HTMLResponse)
+async def read_qr(request: Request):
+    return templates.TemplateResponse("lining.html", {"request": request})
+
+@app.get("/label", response_class=HTMLResponse)
+async def read_qr(request: Request):
+    return templates.TemplateResponse("Print_qr.html", {"request": request})
+
+@app.get("/cutting", response_class=HTMLResponse)
+async def read_qr(request: Request):
+    return templates.TemplateResponse("cutting.html", {"request": request})
+
+    

@@ -1,172 +1,174 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pipe Spool Shot Blasting</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    header {
+      background: #007bff;
+      color: #fff;
+      padding: 16px 24px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.5em;
+    }
+    .steps {
+      display: flex;
+      border-bottom: 1px solid #e1e4e8;
+    }
+    .step {
+      flex: 1;
+      text-align: center;
+      padding: 12px 0;
+      position: relative;
+    }
+    .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 60%;
+      border-right: 1px solid #e1e4e8;
+    }
+    .step.active {
+      background: #e7f1ff;
+      font-weight: bold;
+    }
+    .main {
+      display: flex;
+      padding: 24px;
+    }
+    .panel {
+      flex: 1;
+      padding: 0 16px;
+    }
+    .panel + .panel {
+      border-left: 1px solid #e1e4e8;
+    }
+    .panel h2 {
+      font-size: 1.1em;
+      margin-bottom: 8px;
+    }
+    .panel input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      font-size: 1em;
+      margin-bottom: 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .spool-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .spool-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid #eee;
+    }
+    .spool-item:last-child { border-bottom: none; }
+    .spool-item .remove {
+      color: #dc3545;
+      cursor: pointer;
+    }
+    .actions {
+      text-align: center;
+      margin: 16px 0;
+    }
+    .actions button {
+      padding: 10px 20px;
+      margin: 0 8px;
+      font-size: 1em;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn-assign { background: #28a745; color: #fff; }
+    .btn-reset  { background: #6c757d; color: #fff; }
+    .btn-generateQR { background: #ffc107; color: #000; }
+    .btn-printQR    { background: #17a2b8; color: #fff; }
+    .btn-assign:disabled { background: #94d3a2; cursor: not-allowed; }
+    .visual-cart-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 8px;
+      background: #fafafa;
+    }
+    .status-bar {
+      background: #f8f9fa;
+      padding: 12px 24px;
+      border-top: 1px solid #e1e4e8;
+      font-size: 0.95em;
+      color: #555;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header><h1>📦 Pipe Spool Shot Blasting Station</h1></header>
 
-{% block title %}Pipe Spool Shot Blasting{% endblock %}
-
-{% block head %}
-<style>
-  * { box-sizing: border-box; }
-  body {
-    font-family: Arial, sans-serif;
-    background: #f0f2f5;
-    margin: 0;
-    padding: 20px;
-    color: #333;
-  }
-  .container {
-    max-width: 800px;
-    margin: auto;
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    overflow: hidden;
-  }
-  header {
-    background: #007bff;
-    color: #fff;
-    padding: 16px 24px;
-  }
-  header h1 {
-    margin: 0;
-    font-size: 1.5em;
-  }
-  .steps {
-    display: flex;
-    border-bottom: 1px solid #e1e4e8;
-  }
-  .step {
-    flex: 1;
-    text-align: center;
-    padding: 12px 0;
-    position: relative;
-  }
-  .step:not(:last-child)::after {
-    content: "";
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    height: 60%;
-    border-right: 1px solid #e1e4e8;
-  }
-  .step.active {
-    background: #e7f1ff;
-    font-weight: bold;
-  }
-  .main {
-    display: flex;
-    padding: 24px;
-  }
-  .panel {
-    flex: 1;
-    padding: 0 16px;
-  }
-  .panel + .panel {
-    border-left: 1px solid #e1e4e8;
-  }
-  .panel h2 {
-    font-size: 1.1em;
-    margin-bottom: 8px;
-  }
-  .panel input[type="text"] {
-    width: 100%;
-    padding: 8px;
-    font-size: 1em;
-    margin-bottom: 12px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-  }
-  .spool-list, .visual-cart-list {
-    max-height: 200px;
-    overflow-y: auto;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 8px;
-    background: #fafafa;
-  }
-  .spool-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 12px;
-    border-bottom: 1px solid #eee;
-  }
-  .spool-item .remove {
-    color: #dc3545;
-    cursor: pointer;
-  }
-  .actions {
-    text-align: center;
-    margin: 16px 0;
-  }
-  .actions button {
-    padding: 10px 20px;
-    margin: 0 8px;
-    font-size: 1em;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  .btn-assign { background: #28a745; color: #fff; }
-  .btn-reset { background: #6c757d; color: #fff; }
-  .btn-generateQR { background: #ffc107; color: #000; }
-  .btn-printQR { background: #17a2b8; color: #fff; }
-  .btn-assign:disabled {
-    background: #94d3a2;
-    cursor: not-allowed;
-  }
-  .status-bar {
-    background: #f8f9fa;
-    padding: 12px 24px;
-    border-top: 1px solid #e1e4e8;
-    font-size: 0.95em;
-    color: #555;
-  }
-</style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-{% endblock %}
-
-{% block content %}
-<div class="container">
-  <header><h1>📦 Pipe Spool Shot Blasting Station</h1></header>
-
-  <div class="steps">
-    <div class="step active" id="step1">1. Scan Spools</div>
-    <div class="step" id="step2">2. Scan Cart</div>
-    <div class="step" id="step3">3. Assign</div>
-  </div>
-
-  <div class="main">
-    <div class="panel">
-      <h2>Scan Spool Barcode</h2>
-      <input type="text" id="spoolInput" placeholder="Scan or type SPOOL-0001" autofocus />
-      <h2>Scan Cart Barcode</h2>
-      <input type="text" id="cartInput" placeholder="Scan or type CART-01" />
+    <div class="steps">
+      <div class="step active" id="step1">1. Scan Spools</div>
+      <div class="step" id="step2">2. Scan Cart</div>
+      <div class="step" id="step3">3. Assign</div>
     </div>
 
-    <div class="panel">
-      <h2>Scanned Spools (<span id="spoolCount">0</span>)</h2>
-      <div class="spool-list" id="spoolList"></div>
+    <div class="main">
+      <div class="panel">
+        <h2>Scan Spool Barcode</h2>
+        <input type="text" id="spoolInput" placeholder="Scan or type SPOOL-0001" autofocus />
 
-      <h2 style="margin-top:24px;">Visual Cart</h2>
-      <div class="visual-cart-list" id="cartView"></div>
+        <h2>Scan Cart Barcode</h2>
+        <input type="text" id="cartInput" placeholder="Scan or type CART-01" />
+      </div>
+
+      <div class="panel">
+        <h2>Scanned Spools (<span id="spoolCount">0</span>)</h2>
+        <div class="spool-list" id="spoolList"></div>
+
+        <h2 style="margin-top:24px;">Visual Cart</h2>
+        <div class="visual-cart-list" id="cartView"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-assign" id="assignBtn" disabled>Assign to Cart</button>
+      <button class="btn-reset" onclick="resetAll()">Reset</button>
+      <button class="btn-generateQR" onclick="generateQRCode()">Generate Cart Code</button>
+      <button class="btn-printQR" onclick="printQRCode()">🖨️ Print QR Code</button>
+    </div>
+
+    <div id="qrResult" style="text-align:center; margin-top:20px;"></div>
+    <div class="status-bar" id="statusBar">
+      Cart: <strong id="currentCart">None</strong> | Spools scanned: <strong id="spoolCount2">0</strong>
     </div>
   </div>
 
-  <div class="actions">
-    <button class="btn-assign" id="assignBtn" disabled>Assign to Cart</button>
-    <button class="btn-reset" onclick="resetAll()">Reset</button>
-    <button class="btn-generateQR" onclick="generateQRCode()">Generate Cart Code</button>
-    <button class="btn-printQR" onclick="printQRCode()">🖨️ Print QR Code</button>
-  </div>
-
-  <div id="qrResult" style="text-align:center; margin-top:20px;"></div>
-  <div class="status-bar" id="statusBar">
-    Cart: <strong id="currentCart">None</strong> | Spools scanned: <strong id="spoolCount2">0</strong>
-  </div>
-</div>
-{% endblock %}
-
-{% block script %}
-<script>
+  <script>
     let spools = [];
     let cartCode = "";
 
@@ -387,4 +389,6 @@
 
     refreshList();
   </script>
-{% endblock %}
+  
+</body>
+</html>

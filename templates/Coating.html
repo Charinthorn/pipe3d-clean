@@ -1,218 +1,228 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pipe Spool Coating Station</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f2f2f7;
+      padding: 30px;
+      color: #333;
+    }
+    h2 {
+      margin-bottom: 15px;
+      color: #2c3e50;
+    }
+    #scan-section {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+    }
+    input[type="text"] {
+      padding: 10px;
+      font-size: 16px;
+      width: 300px;
+      margin-right: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      padding: 10px 16px;
+      font-size: 15px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-start { background: #f39c12; color: white; }
+    .btn-finish { background: #27ae60; color: white; }
+    .btn:disabled { background: #ccc; }
+    .cart-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    .cart-header {
+      font-size: 18px;
+      margin-bottom: 10px;
+      font-weight: 600;
+      color: #2d3436;
+    }
+    .info-row {
+      margin: 6px 0;
+    }
+    .color-box {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      border: 1px solid #999;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+    .timer-box {
+      font-size: 17px;
+      font-weight: bold;
+      margin: 8px 0;
+      color: #2980b9;
+    }
+    .btn-row {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  
+  <h2>🖌️ Pipe Spool Coating Station</h2>
 
-{% block title %}Pipe Spool Coating{% endblock %}
+  <div id="scan-section">
+    <label for="barcodeInput"><strong>📦 Scan Cart Barcode:</strong></label><br><br>
+    <input type="text" id="barcodeInput" placeholder="e.g. CART-745 S014 S020 S015" autofocus />
+    <button onclick="scanCart()">Scan</button>
+  </div>
 
-{% block head %}
-<style>
-  * { box-sizing: border-box; }
-  body {
-    font-family: 'Segoe UI', sans-serif;
-    background: #f2f2f7;
-    padding: 30px;
-    color: #333;
-  }
-  h2 {
-    margin-bottom: 15px;
-    color: #2c3e50;
-  }
-  #scan-section {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.05);
-    margin-bottom: 20px;
-  }
-  input[type="text"] {
-    padding: 10px;
-    font-size: 16px;
-    width: 300px;
-    margin-right: 10px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-  }
-  button {
-    padding: 10px 16px;
-    font-size: 15px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-  .btn-start { background: #f39c12; color: white; }
-  .btn-finish { background: #27ae60; color: white; }
-  .btn:disabled { background: #ccc; }
-  .cart-card {
-    background: white;
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-  }
-  .cart-header {
-    font-size: 18px;
-    margin-bottom: 10px;
-    font-weight: 600;
-    color: #2d3436;
-  }
-  .info-row {
-    margin: 6px 0;
-  }
-  .color-box {
-    display: inline-block;
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
-    border: 1px solid #999;
-    margin-left: 10px;
-    vertical-align: middle;
-  }
-  .timer-box {
-    font-size: 17px;
-    font-weight: bold;
-    margin: 8px 0;
-    color: #2980b9;
-  }
-  .btn-row {
-    margin-top: 10px;
-  }
-</style>
-{% endblock %}
+  <div id="cartContainer"></div>
 
-{% block content %}
-<h2>🖌️ Pipe Spool Coating Station</h2>
+  <script>
+    const activeCarts = {};
 
-<div id="scan-section">
-  <label for="barcodeInput"><strong>📦 Scan Cart Barcode:</strong></label><br><br>
-  <input type="text" id="barcodeInput" placeholder="e.g. CART-745 S014 S020 S015" autofocus />
-  <button onclick="scanCart()">Scan</button>
-</div>
+    function scanCart() {
+      const rawInput = document.getElementById('barcodeInput').value.trim();
+      const parts = rawInput.split(/\s+/);
+      const cartId = parts[0].toUpperCase();
+      const spools = parts.slice(1).map(s => s.toUpperCase());
 
-<div id="cartContainer"></div>
-{% endblock %}
+      if (!cartId.startsWith("CART-")) return alert("❌ Invalid cart format.");
+      if (spools.length === 0) return alert("⚠️ No spools found.");
+      if (activeCarts[cartId]) return alert("⚠️ Cart already active.");
 
-{% block script %}
-<script>
-  const activeCarts = {};
+      const cartEl = document.createElement('div');
+      cartEl.className = 'cart-card';
+      cartEl.id = `cart-${cartId}`;
 
-  function scanCart() {
-    const rawInput = document.getElementById('barcodeInput').value.trim();
-    const parts = rawInput.split(/\s+/);
-    const cartId = parts[0].toUpperCase();
-    const spools = parts.slice(1).map(s => s.toUpperCase());
+      let spoolHtml = `<div class="cart-header">🧾 ${cartId}</div>`;
 
-    if (!cartId.startsWith("CART-")) return alert("❌ Invalid cart format.");
-    if (spools.length === 0) return alert("⚠️ No spools found.");
-    if (activeCarts[cartId]) return alert("⚠️ Cart already active.");
+      spools.forEach(spool => {
+        const spoolId = `${cartId}-${spool}`;
+        activeCarts[spoolId] = { startTime: null, interval: null };
 
-    const cartEl = document.createElement('div');
-    cartEl.className = 'cart-card';
-    cartEl.id = `cart-${cartId}`;
-
-    let spoolHtml = `<div class="cart-header">🧾 ${cartId}</div>`;
-
-    spools.forEach(spool => {
-      const spoolId = `${cartId}-${spool}`;
-      activeCarts[spoolId] = { startTime: null, interval: null };
-
-      spoolHtml += `
-        <div id="spool-${spoolId}">
-          <div class="info-row"><strong>Spool:</strong> ${spool}</div>
-          <div class="info-row"><strong>Coating:</strong> Not specified</div>
-          <div class="info-row"><strong>Color:</strong> Not specified
-            <span class="color-box" style="background:#ffffff"></span>
+        spoolHtml += `
+          <div id="spool-${spoolId}">
+            <div class="info-row"><strong>Spool:</strong> ${spool}</div>
+            <div class="info-row"><strong>Coating:</strong> Not specified</div>
+            <div class="info-row"><strong>Color:</strong> Not specified
+              <span class="color-box" style="background:#ffffff"></span>
+            </div>
+            <div class="info-row"><strong>Chemicals:</strong> -</div>
+            <div class="timer-box">🕒 Time: <span id="timer-${spoolId}">00:00:00</span></div>
+            <div class="btn-row">
+              <button class="btn btn-start" onclick="startJob('${spoolId}')" id="start-${spoolId}">Begin Job</button>
+              <button class="btn btn-finish" onclick="finishJob('${spoolId}')" id="finish-${spoolId}" disabled>Finish Job</button>
+            </div>
+            <hr/>
           </div>
-          <div class="info-row"><strong>Chemicals:</strong> -</div>
-          <div class="timer-box">🕒 Time: <span id="timer-${spoolId}">00:00:00</span></div>
-          <div class="btn-row">
-            <button class="btn btn-start" onclick="startJob('${spoolId}')" id="start-${spoolId}">Begin Job</button>
-            <button class="btn btn-finish" onclick="finishJob('${spoolId}')" id="finish-${spoolId}" disabled>Finish Job</button>
-          </div>
-          <hr/>
-        </div>
-      `;
-    });
+        `;
+      });
 
-    cartEl.innerHTML = spoolHtml;
-    document.getElementById('cartContainer').appendChild(cartEl);
-    document.getElementById('barcodeInput').value = '';
-  }
-
-  function startJob(barcode) {
-    const cart = activeCarts[barcode];
-    if (cart.interval) return;
-
-    const spoolId = barcode.split('-').pop();
-    fetch("/api/update_status_coating", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ spool_id: spoolId, status: "in-progress" })
-    });
-
-    cart.startTime = Date.now();
-    document.getElementById(`start-${barcode}`).disabled = true;
-    document.getElementById(`finish-${barcode}`).disabled = false;
-
-    cart.interval = setInterval(() => {
-      const elapsed = Date.now() - cart.startTime;
-      const hrs = Math.floor(elapsed / 3600000);
-      const mins = Math.floor((elapsed % 3600000) / 60000);
-      const secs = Math.floor((elapsed % 60000) / 1000);
-      document.getElementById(`timer-${barcode}`).innerText = `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
-    }, 1000);
-  }
-
-  function finishJob(spoolId) {
-    const cart = activeCarts[spoolId];
-    const timerDisplay = document.getElementById(`timer-${spoolId}`);
-    const timeSpent = timerDisplay ? timerDisplay.innerText : "00:00:00";
-
-    if (cart && cart.interval) {
-      clearInterval(cart.interval);
-      cart.interval = null;
+      cartEl.innerHTML = spoolHtml;
+      document.getElementById('cartContainer').appendChild(cartEl);
+      document.getElementById('barcodeInput').value = '';
     }
 
-    const confirmFinish = confirm(`✅ ${spoolId} coating complete.\nTime spent: ${timeSpent}\n\nDo you want to remove this spool from the dashboard?`);
+    function startJob(barcode) {
+      const cart = activeCarts[barcode];
+      if (cart.interval) return;
 
-    if (confirmFinish) {
-      const spoolShort = spoolId.split("-").pop();
+      // อัปเดตสถานะเป็น in-progress
+      const spoolId = barcode.split('-').pop();
       fetch("/api/update_status_coating", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ spool_id: spoolShort, status: "finished" })
+        body: JSON.stringify({ spool_id: spoolId, status: "in-progress" })
       });
 
-      const card = document.getElementById(`spool-${spoolId}`);
-      if (card) card.remove();
-      delete activeCarts[spoolId];
+      cart.startTime = Date.now();
+      document.getElementById(`start-${barcode}`).disabled = true;
+      document.getElementById(`finish-${barcode}`).disabled = false;
 
-      const cartId = spoolId.split("-").slice(0, 2).join("-");
-      const stillHasSpool = Object.keys(activeCarts).some(k => k.startsWith(cartId + "-"));
-      if (!stillHasSpool) {
-        const cartEl = document.getElementById(`cart-${cartId}`);
-        if (cartEl) cartEl.remove();
-      }
-    } else {
-      document.getElementById(`finish-${spoolId}`).disabled = false;
-      document.getElementById(`start-${spoolId}`).disabled = true;
-
-      const elapsedBefore = parseTimeToMs(timeSpent);
-      cart.startTime = Date.now() - elapsedBefore;
       cart.interval = setInterval(() => {
         const elapsed = Date.now() - cart.startTime;
         const hrs = Math.floor(elapsed / 3600000);
         const mins = Math.floor((elapsed % 3600000) / 60000);
         const secs = Math.floor((elapsed % 60000) / 1000);
-        document.getElementById(`timer-${spoolId}`).innerText = `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+        document.getElementById(`timer-${barcode}`).innerText =
+          `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
       }, 1000);
     }
-  }
 
-  function parseTimeToMs(timeStr) {
-    const parts = timeStr.split(":").map(Number);
-    return ((parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0)) * 1000;
-  }
+    // ✅ แปลง 00:01:23 → 83230 ms
+    function parseTimeToMs(timeStr) {
+      const parts = timeStr.split(":").map(Number);
+      const hrs = parts[0] || 0;
+      const mins = parts[1] || 0;
+      const secs = parts[2] || 0;
+      return ((hrs * 3600) + (mins * 60) + secs) * 1000;
+    }
 
-  function pad(num) {
-    return num.toString().padStart(2, '0');
-  }
-</script>
-{% endblock %}
+    function finishJob(spoolId) {
+      const cart = activeCarts[spoolId];
+      const timerDisplay = document.getElementById(`timer-${spoolId}`);
+      const timeSpent = timerDisplay ? timerDisplay.innerText : "00:00:00";
+
+      if (cart && cart.interval) {
+        clearInterval(cart.interval);
+        cart.interval = null;
+      }
+
+      const confirmFinish = confirm(`✅ ${spoolId} coating complete.\nTime spent: ${timeSpent}\n\nDo you want to remove this spool from the dashboard?`);
+
+      if (confirmFinish) {
+        // ✅ อัปเดตสถานะใน Google Sheet เฉพาะเมื่อกด OK
+        const spoolShort = spoolId.split("-").pop(); // เช่น S020 จาก CART-745-S020
+        fetch("/api/update_status_coating", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ spool_id: spoolShort, status: "finished" })
+        });
+
+        const card = document.getElementById(`spool-${spoolId}`);
+        if (card) card.remove();
+        delete activeCarts[spoolId];
+
+        // ✅ ลบการ์ดตะกร้าเมื่อไม่มี spool เหลือ
+        const cartId = spoolId.split("-").slice(0, 2).join("-");
+        const stillHasSpool = Object.keys(activeCarts).some(k => k.startsWith(cartId + "-"));
+        if (!stillHasSpool) {
+          const cartEl = document.getElementById(`cart-${cartId}`);
+          if (cartEl) cartEl.remove();
+        }
+      } else {
+        // ❌ ยกเลิก: กลับมาเดินเวลาใหม่
+        document.getElementById(`finish-${spoolId}`).disabled = false;
+        document.getElementById(`start-${spoolId}`).disabled = true;
+
+        const elapsedBefore = parseTimeToMs(timeSpent);
+        cart.startTime = Date.now() - elapsedBefore;
+        cart.interval = setInterval(() => {
+          const elapsed = Date.now() - cart.startTime;
+          const hrs = Math.floor(elapsed / 3600000);
+          const mins = Math.floor((elapsed % 3600000) / 60000);
+          const secs = Math.floor((elapsed % 60000) / 1000);
+          document.getElementById(`timer-${spoolId}`).innerText =
+            `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+        }, 1000);
+      }
+    }
+
+    function pad(num) {
+      return num.toString().padStart(2, '0');
+    }
+  </script>
+  
+</body>
+</html>
