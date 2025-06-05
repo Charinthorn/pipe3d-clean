@@ -34,9 +34,15 @@ SPREADSHEET_ID = "1kK6sEVA9_p6dP5ot7QrszVPe_EYbFwv9E_zouOFzEMM"
 RANGE_NAME = "'ชีต1'!A1:L"
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+
+# ✅ สร้างไฟล์ service-account.json จาก ENV (ต้องใส่ก่อน credentials)
+with open("service-account.json", "w") as f:
+    f.write(os.getenv("GOOGLE_CREDS", ""))
+
 credentials = service_account.Credentials.from_service_account_file(
     SERVICE_ACCOUNT_FILE, scopes=SCOPES
 )
+
 sheet_service = build("sheets", "v4", credentials=credentials)
 
 # === Utility ===
