@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 import qrcode
 from fpdf import FPDF
 import os
@@ -27,6 +30,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+templates = Jinja2Templates(directory="templates")
 
 # === Google Sheet Config ===
 SERVICE_ACCOUNT_FILE = "service-account.json"
@@ -655,3 +660,7 @@ def get_pipe_statuses():
         ])
 
     return cleaned
+
+@app.get("/", response_class=HTMLResponse)
+async def read_home(request: Request):
+    return templates.TemplateResponse("Dashboard.html", {"request": request})
