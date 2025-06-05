@@ -210,7 +210,7 @@
     //
     async function fetchWorkflowsFromAPI() {
       try {
-        const res = await fetch("http://localhost:8000/api/pipes_statuses");
+        const res = await fetch("/api/pipes_statuses");
         const data = await res.json();
         const [header, ...rows] = data;
 
