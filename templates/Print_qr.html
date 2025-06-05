@@ -86,6 +86,11 @@
   </style>
 </head>
 <body>
+  {% extends "base.html" %}
+
+  {% block title %}Pipe Spool Labeling Station{% endblock %}
+
+  {% block content %}
   <header>Pipe Spool Labeling Station</header>
   <div class="container">
     <div class="toolbar">
@@ -347,6 +352,6 @@
     });
   }
 </script>
-
+{% endblock %}
 </body>
 </html>

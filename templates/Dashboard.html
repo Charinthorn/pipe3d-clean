@@ -155,6 +155,11 @@
   </style>
 </head>
 <body>
+  {% extends "base.html" %}
+
+  {% block title %}PTFE Spool Production Dashboard{% endblock %}
+
+  {% block content %}
   <aside class="sidebar">
     <h2>PTFE Production</h2>
     <ul class="nav">
@@ -366,5 +371,6 @@
     // โหลดข้อมูลเมื่อหน้าเปิด
     fetchWorkflowsFromAPI();
   </script>
+  {% endblock %}
 </body>
 </html>

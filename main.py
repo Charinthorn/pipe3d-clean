@@ -661,6 +661,9 @@ def get_pipe_statuses():
 
     return cleaned
 
-@app.get("/", response_class=HTMLResponse)
-async def read_home(request: Request):
-    return templates.TemplateResponse("Dashboard.html", {"request": request})
+@app.get("/{page_name}", response_class=HTMLResponse)
+async def render_page(request: Request, page_name: str):
+    try:
+        return templates.TemplateResponse(f"{page_name}.html", {"request": request})
+    except:
+        raise HTTPException(status_code=404, detail="Page not found")

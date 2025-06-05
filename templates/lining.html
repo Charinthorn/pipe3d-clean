@@ -81,7 +81,11 @@
   </style>
 </head>
 <body>
+  {% extends "base.html" %}
 
+  {% block title %}Lining – Auto Scan QR{% endblock %}
+
+  {% block content %}
   <h2>🧩 Lining – Auto Scan QR </h2>
 
   <!-- กล่องสแกน QR (รับข้อมูลอัตโนมัติเมื่อสแกนเสร็จ) -->
@@ -207,6 +211,6 @@
       currentSpools = [];
     }
   </script>
-
+  {% endblock %}
 </body>
 </html>

@@ -92,6 +92,11 @@
   </style>
 </head>
 <body>
+  {% extends "base.html" %}
+
+  {% block title %}Cutting Station – Optimized{% endblock %}
+
+  {% block content %}
   <div class="sidebar">
     <div class="sidebar-header">
       <input id="searchSo" placeholder="Search SO No..." oninput="filterSOs()" />
@@ -505,5 +510,6 @@
 
     window.onload = loadFromSheet;
   </script>
+  {% endblock %}
 </body>
 </html>

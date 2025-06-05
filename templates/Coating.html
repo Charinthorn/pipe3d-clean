@@ -77,7 +77,11 @@
   </style>
 </head>
 <body>
+  {% extends "base.html" %}
 
+  {% block title %}Pipe Spool Coating{% endblock %}
+
+  {% block content %}
   <h2>🖌️ Pipe Spool Coating Station</h2>
 
   <div id="scan-section">
@@ -223,5 +227,6 @@
       return num.toString().padStart(2, '0');
     }
   </script>
+  {% endblock %}
 </body>
 </html>

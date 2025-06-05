@@ -128,6 +128,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
+  {% extends "base.html" %}
+
+  {% block title %}Pipe Spool Shot Blasting{% endblock %}
+
+  {% block content %}
   <div class="container">
     <header><h1>📦 Pipe Spool Shot Blasting Station</h1></header>
 
@@ -389,5 +394,6 @@
 
     refreshList();
   </script>
+  {% endblock %}
 </body>
 </html>

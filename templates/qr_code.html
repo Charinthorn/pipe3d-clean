@@ -73,7 +73,11 @@
   </style>
 </head>
 <body>
+{% extends "base.html" %}
 
+{% block title %}Workstation Assembly{% endblock %}
+
+{% block content %}
 <div class="screen scanner-screen active" id="scannerScreen">
   <h2>📦 Scan QR Code</h2>
   <input type="text" id="barcodeInput" placeholder="Scan QR Code here..." autofocus>
@@ -252,5 +256,6 @@
     });
   }
 </script>
+{% endblock %}
 </body>
 </html>
