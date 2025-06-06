@@ -617,36 +617,31 @@ async def update_status_labeling(request: Request):
 
 @app.get("/api/pipes_statuses")
 def get_pipe_statuses():
-    # อ่านข้อมูลตั้งแต่คอลัมน์ A – Q (Spool ID, SO, Size, …, status_labeling)
     result = sheet_service.spreadsheets().values().get(
         spreadsheetId=SPREADSHEET_ID,
-        range="'ชีต1'!A1:Q"
+        range="'ชีต1'!A1:R"  # ✅ เพิ่มถึงคอลัมน์ R
     ).execute()
 
     values = result.get("values", [])
     if not values or len(values) < 2:
-        # กรณีไม่มีข้อมูลเลย ให้คืน head เดียวเท่านั้น
         return [[
             "Spool ID", "SO",
             "status_cut", "status_assembly", "status_blasting",
-            "status_lining", "status_coating", "status_labeling"
+            "status_lining", "status_coating", "status_labeling",
+            "delivery_date"  # ✅ เพิ่มหัว column
         ]]
 
-    # ดึง header จริง (ชื่อคอลัมน์จากแถวแรกของชีต)
     header = [h.strip() for h in values[0]]
 
-    # เตรียม array ที่จะคืนกลับ: แถวแรกเป็นชื่อคอลัมน์ที่เราต้องการ
     cleaned = [[
         "Spool ID", "SO",
         "status_cut", "status_assembly", "status_blasting",
-        "status_lining", "status_coating", "status_labeling"
+        "status_lining", "status_coating", "status_labeling",
+        "delivery_date"
     ]]
 
-    # สำหรับแต่ละแถวข้อมูล (row 2 เป็นต้นไป)
     for row in values[1:]:
-        # สร้าง dict mapping ชื่อหัวข้อ → ค่าในแถว (เติม "" ในกรณีที่ row สั้นกว่า header)
         row_dict = dict(zip(header, row + [""] * (len(header) - len(row))))
-
         cleaned.append([
             row_dict.get("Spool ID", "").strip(),
             row_dict.get("SO", "").strip(),
@@ -656,6 +651,7 @@ def get_pipe_statuses():
             row_dict.get("status_lining", "").strip().lower(),
             row_dict.get("status_coating", "").strip().lower(),
             row_dict.get("status_labeling", "").strip().lower(),
+            row_dict.get("Delivery Date", "").strip()  # ✅ เพิ่มดึงค่านี้
         ])
 
     return cleaned

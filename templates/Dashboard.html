@@ -16,8 +16,8 @@
       --shadow: rgba(0, 0, 0, 0.1);
       --radius: 8px;
       --step-pending: #E53E50;       /* สีแดงสำหรับ pending */
-      --step-in-progress: #ede581;   /* สีเหลืองสำหรับ in-progress */
-      --step-completed: #41e794;     /* สีเขียวสำหรับ finished */
+      --step-in-progress: #e6db46;   /* สีเหลืองสำหรับ in-progress */
+      --step-completed: #16a05b;     /* สีเขียวสำหรับ finished */
       --priority-high: #E53E3E;
       --priority-medium: #DD6B20;
       --priority-low: #38A169;
@@ -233,6 +233,7 @@
           grouped[soNo].push({
             name: item["Spool ID"],
             qty: 1,
+            delivery_date: item["delivery_date"],
             stationStatus: [
               item["status_cut"],
               item["status_assembly"],
@@ -245,16 +246,16 @@
         });
 
         // สร้าง workflows
-        workflows = Object.entries(grouped).map(([so, items]) => ({
+       workflows = Object.entries(grouped).map(([so, items]) => ({
           id: so,
-          date: "2025-06-01",  // สามารถแก้เป็นข้อมูลจริงได้
+          date: new Date().toISOString().split('T')[0], // ใช้วันที่ปัจจุบัน
           status: items.every(i => i.stationStatus.every(s => s === "finished"))
                     ? "completed"
                   : items.every(i => i.stationStatus.every(s => !s || s === "pending"))
                     ? "pending"
                   : "in-progress",
           priority: "medium", // กำหนด logic priority ตามต้องการ
-          dueDate: "2025-06-20",
+          dueDate: items[0].delivery_date || "-",  // ✅ ดึงจาก Google Sheet จริง
           estCompletion: "2025-06-10",
           items
         }));
